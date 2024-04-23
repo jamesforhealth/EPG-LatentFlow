@@ -1,0 +1,265 @@
+import os
+import json
+import random
+import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torch import nn, optim
+import scipy
+import sys
+
+class PeakDetectionDataset(Dataset):
+    def __init__(self, json_files, window_size, sample_rate=100):
+        self.data = []
+        self.labels = []
+        self.sample_rate = sample_rate
+        self.load_data(json_files, window_size)
+
+    def load_data(self, json_files, window_size):
+        for json_file in json_files:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+                signal = data['smoothed_data']
+                peaks = set(data['x_points'])
+                original_sample_rate = data.get('sample_rate', 100)
+                
+                if original_sample_rate != self.sample_rate:
+                    num_samples = int(len(signal) * self.sample_rate / original_sample_rate)
+                    signal = scipy.signal.resample(signal, num_samples)
+                    # 重新計算峰值的位置
+                    peaks = {int(peak * self.sample_rate / original_sample_rate) for peak in peaks}
+                
+                num_samples = len(signal)
+
+                for start in range(0, num_samples - window_size + 1, self.sample_rate):
+                    end = start + window_size
+                    segment = signal[start:end]
+                    label = np.zeros(window_size, dtype=np.float32)
+                    for peak in peaks:
+                        if start <= peak < end:
+                            # 在峰值位置使用高斯窗函數
+                            peak_pos = peak - start
+                            sigma = 3  # 控制高斯分佈的寬度
+                            for i in range(max(0, peak_pos - 3 * sigma), min(window_size, peak_pos + 3 * sigma + 1)):
+                                label[i] += np.exp(-0.5 * ((i - peak_pos) / sigma) ** 2)
+                    label = np.clip(label, 0, 1)  # 確保標籤值在0和1之間
+                    self.data.append(segment)
+                    self.labels.append(label)
+
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        segment = np.array(self.data[idx], dtype=np.float32)
+        segment = segment.reshape(1, -1)
+        label = np.array(self.labels[idx], dtype=np.float32)
+        return torch.tensor(segment), torch.tensor(label)
+
+class PeakDetectionDCNN(nn.Module):
+    def __init__(self, input_size, num_classes):
+        super(PeakDetectionDCNN, self).__init__()
+        self.conv1 = nn.Conv1d(1, 64, kernel_size=3, dilation=1, padding=1)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv1d(64, 64, kernel_size=3, dilation=2, padding=2)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
+        
+        self.conv3 = nn.Conv1d(64, 128, kernel_size=3, dilation=4, padding=4)
+        self.relu3 = nn.ReLU(inplace=True)
+        self.conv4 = nn.Conv1d(128, 128, kernel_size=3, dilation=8, padding=8)
+        self.relu4 = nn.ReLU(inplace=True)
+        self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
+        
+        self.conv5 = nn.Conv1d(128, 256, kernel_size=3, dilation=16, padding=16)
+        self.relu5 = nn.ReLU(inplace=True)
+        self.conv6 = nn.Conv1d(256, 256, kernel_size=3, dilation=32, padding=32)
+        self.relu6 = nn.ReLU(inplace=True)
+        self.pool3 = nn.AdaptiveAvgPool1d(1)
+        
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(256, input_size)  # 修改全連接層的輸出尺寸為input_size
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.relu1(x)
+        x = self.conv2(x)
+        x = self.relu2(x)
+        x = self.pool1(x)
+        
+        x = self.conv3(x)
+        x = self.relu3(x)
+        x = self.conv4(x)
+        x = self.relu4(x)
+        x = self.pool2(x)
+        
+        x = self.conv5(x)
+        x = self.relu5(x)
+        x = self.conv6(x)
+        x = self.relu6(x)
+        x = self.pool3(x)
+        
+        x = self.flatten(x)
+        x = self.fc(x)
+        x = self.sigmoid(x)
+        
+        return x
+
+def test_model(model, dataloader, device, threshold=0.5):
+    model.eval()
+    predictions = []
+    with torch.no_grad():
+        for data, _ in dataloader:
+            data = data.to(device)
+            outputs = model(data)
+            probabilities = outputs.squeeze(0)  # 移除批次維度
+            predicted = (probabilities > threshold).cpu().numpy().astype(int)
+            predictions.append(predicted)
+    
+    return predictions
+
+def train_model(model, train_dataloader, val_dataloader, criterion, optimizer, device, epochs=300):
+    for epoch in range(epochs):
+        model.train()
+        running_loss = 0.0
+        for data, labels in train_dataloader:
+            data, labels = data.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(data)
+            loss = criterion(outputs, labels)  # 確保標籤的形狀為(batch_size, window_size)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+
+        val_loss = validate_model(model, val_dataloader, criterion, device)
+        print(f'Epoch {epoch+1}, Training Loss: {running_loss / len(train_dataloader)}, Validation Loss: {val_loss}')
+
+def validate_model(model, dataloader, criterion, device):
+    model.eval()
+    total_loss = 0
+    with torch.no_grad():
+        for data, labels in dataloader:
+            data, labels = data.to(device), labels.to(device)
+            outputs = model(data)
+            loss = criterion(outputs, labels)  # 確保標籤的形狀為(batch_size, window_size)
+            total_loss += loss.item()
+    return total_loss / len(dataloader)
+
+
+
+
+def get_json_files(data_folder):
+    json_files = []
+    for root, dirs, files in os.walk(data_folder):
+        for file in files:
+            if file.endswith('.json'):
+                json_files.append(os.path.join(root, file))
+    return json_files
+
+def add_padding(signal, window_size):
+    remainder = len(signal) % window_size
+    if remainder != 0:
+        # Calculate how much padding is needed to make the signal length a multiple of the window size
+        padding_length = window_size - remainder
+        # Pad the signal at the end with the mean of the signal or zero
+        padded_signal = np.pad(signal, (0, padding_length), 'constant', constant_values=(0, 0))
+    else:
+        padded_signal = signal
+    return list(padded_signal)
+
+def predict_window(model, segment, device, start):
+    segment = np.array(segment, dtype=np.float32).reshape(1, 1, -1)  # 調整為模型的輸入格式
+    segment_tensor = torch.tensor(segment).to(device)
+
+    with torch.no_grad():
+        output = model(segment_tensor)
+        predicted = (output > 0.5).cpu().numpy().astype(int)[0]
+        peak_positions = np.where(predicted == 1)[0] + start  # 計算峰值的絕對位置    
+    return peak_positions
+
+def predict_peaks(model, json_file, window_size, device):
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+        signal = data['smoothed_data']
+        sample_rate = data.get('sample_rate', 100)
+        num_samples = len(signal)
+
+    model.eval()
+    peaks_indices = []
+    # 遍歷信號，以sample_rate為步長滑動窗口
+    for start in range(0, num_samples - window_size + 1, int(sample_rate)):
+        end = start + window_size
+        if end > num_samples:
+            shifted_start = num_samples - window_size
+            shifted_end = num_samples
+            segment = signal[shifted_start:shifted_end]
+            peak_positions = predict_window(model, segment, device, shifted_start)
+            peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
+            print(f'peak_positions: {peak_positions}, shifted_start: {shifted_start}, shifted_end: {shifted_end}')
+            break
+        segment = signal[start:end]
+        peak_positions = predict_window(model, segment, device, start)
+        peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
+            # peaks_indices.extend(peak_positions.tolist())
+
+    peak_ranges = sorted(peaks_indices)
+    #把peak_ranges每一段連續整數抽出來，把這些連續數段作為index去保留原始訊號值最大的
+    real_peaks = []
+    last_i = peak_ranges[0]
+    argmax_signal = last_i
+    for i in peak_ranges[1:]:
+        if i != last_i + 1:
+            real_peaks.append(argmax_signal)
+            argmax_signal = i            
+        else:
+            if signal[i] > signal[argmax_signal]:
+                argmax_signal = i
+        last_i = i
+
+    return real_peaks
+
+def main():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
+    data_folder = 'point_labelled_DB'
+    json_files = get_json_files(data_folder)
+
+    if not json_files:
+        print(f"No JSON files found in {data_folder} and its subfolders. Please check the directory.")
+        return
+
+    random.shuffle(json_files)
+    split_point = int(0.8 * len(json_files))
+    train_files = json_files[:split_point]
+    val_files = json_files[split_point:]
+    print(f'validation files: {val_files}')
+    window_size = 200  # Assuming a fixed window size for simplicity
+
+    train_dataset = PeakDetectionDataset(train_files, window_size)
+    val_dataset = PeakDetectionDataset(val_files, window_size)
+    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+    input_size = window_size
+    num_classes = 1
+
+
+    model = PeakDetectionDCNN(input_size, num_classes).to(device)
+    #如果模型存在
+    if os.path.exists('peak_detection_model.pt'):
+        model.load_state_dict(torch.load('peak_detection_model.pt'))
+
+    # criterion = nn.BCELoss()
+    # optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    # train_model(model, train_dataloader, val_dataloader, criterion, optimizer, device)
+
+    # #儲存模型
+    # torch.save(model.state_dict(), 'peak_detection_model.pt')
+
+    json_file = sys.argv[1]
+    predicted_peaks = predict_peaks(model, json_file, window_size, device)
+    print(predicted_peaks)
+if __name__ == '__main__':
+    main()

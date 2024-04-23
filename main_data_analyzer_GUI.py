@@ -555,6 +555,7 @@ class MainWindow(QMainWindow):
             "a_points": self.a_points,
             "b_points": self.b_points,
             "c_points": self.c_points,
+            "sample_rate": self.sample_rate,
             # 這裡可以添加更多需要保存的數據
         }
         
@@ -596,6 +597,8 @@ class MainWindow(QMainWindow):
                 self.clear_data()
                 self.process_data(data)
 
+            self.selected_points.clear()  # 清空Selected Point
+            self.update_selected_points_label()  # 更新Selected Point的顯示
             self.update_points_edit()
             self.plot_data()
     def load_labeled_data(self, data):
@@ -705,7 +708,7 @@ class MainWindow(QMainWindow):
             self.c_points = list(map(int, self.c_points_edit.text().split(',')))
             self.plot_data()
         except ValueError as e:
-            print(f'ValueError: {e}')              
+            print(f'ValueError: {e}')          
 
     def plot_data(self):
         self.plot_widget.clear()
@@ -717,28 +720,33 @@ class MainWindow(QMainWindow):
             self.plot_widget.plot(self.smoothed_data, pen=pg.mkPen(color=(0, 0, 255), width=2), name='Smoothed Data')
 
         if self.checkbox_x_points.isChecked():
-            self.plot_widget.plot(self.x_points, [self.smoothed_data[i] for i in self.x_points], pen=None, symbol='o', symbolBrush=(255, 255, 0), symbolSize=7, name='X Points')
+            x_points_in_range = [i for i in self.x_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(255, 255, 0), symbolSize=7, name='X Points')
 
         if self.checkbox_y_points.isChecked():
-            self.plot_widget.plot(self.y_points, [self.smoothed_data[i] for i in self.y_points], pen=None, symbol='o', symbolBrush=(0, 255, 255), symbolSize=7, name='Y Points')
+            y_points_in_range = [i for i in self.y_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(y_points_in_range, [self.smoothed_data[i] for i in y_points_in_range], pen=None, symbol='o', symbolBrush=(0, 255, 255), symbolSize=7, name='Y Points')
 
         if self.checkbox_z_points.isChecked():
-            self.plot_widget.plot(self.z_points, [self.smoothed_data[i] for i in self.z_points], pen=None, symbol='o', symbolBrush=(255, 0, 255), symbolSize=7, name='Z Points')
+            z_points_in_range = [i for i in self.z_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(z_points_in_range, [self.smoothed_data[i] for i in z_points_in_range], pen=None, symbol='o', symbolBrush=(255, 0, 255), symbolSize=7, name='Z Points')
 
         if self.checkbox_a_points.isChecked():
-            self.plot_widget.plot(self.a_points, [self.smoothed_data[i] for i in self.a_points], pen=None, symbol='o', symbolBrush=(128, 0, 128), symbolSize=7, name='A Points')
+            a_points_in_range = [i for i in self.a_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(a_points_in_range, [self.smoothed_data[i] for i in a_points_in_range], pen=None, symbol='o', symbolBrush=(128, 0, 128), symbolSize=7, name='A Points')
 
         if self.checkbox_b_points.isChecked():
-            self.plot_widget.plot(self.b_points, [self.smoothed_data[i] for i in self.b_points], pen=None, symbol='o', symbolBrush=(128, 128, 0), symbolSize=7, name='B Points')
+            b_points_in_range = [i for i in self.b_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(b_points_in_range, [self.smoothed_data[i] for i in b_points_in_range], pen=None, symbol='o', symbolBrush=(128, 128, 0), symbolSize=7, name='B Points')
 
         if self.checkbox_c_points.isChecked():
-            self.plot_widget.plot(self.c_points, [self.smoothed_data[i] for i in self.c_points], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=7, name='C Points')
+            c_points_in_range = [i for i in self.c_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(c_points_in_range, [self.smoothed_data[i] for i in c_points_in_range], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=7, name='C Points')
 
         self.legend.clear()
         for item in self.plot_widget.listDataItems():
             if isinstance(item, pg.PlotDataItem):
                 self.legend.addItem(item, item.name())
-
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
