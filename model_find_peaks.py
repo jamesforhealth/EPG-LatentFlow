@@ -17,34 +17,38 @@ class PeakDetectionDataset(Dataset):
 
     def load_data(self, json_files, window_size):
         for json_file in json_files:
+            print(f'json_file:{json_file}')
             with open(json_file, 'r') as f:
                 data = json.load(f)
-                signal = data['smoothed_data']
-                peaks = set(data['x_points'])
-                original_sample_rate = data.get('sample_rate', 100)
-                
-                if original_sample_rate != self.sample_rate:
-                    num_samples = int(len(signal) * self.sample_rate / original_sample_rate)
-                    signal = scipy.signal.resample(signal, num_samples)
-                    # 重新計算峰值的位置
-                    peaks = {int(peak * self.sample_rate / original_sample_rate) for peak in peaks}
-                
-                num_samples = len(signal)
+                try:
+                    signal = data['smoothed_data']
+                    peaks = set(data['x_points'])
+                    original_sample_rate = data.get('sample_rate', 100)
+                    
+                    if original_sample_rate != self.sample_rate:
+                        num_samples = int(len(signal) * self.sample_rate / original_sample_rate)
+                        signal = scipy.signal.resample(signal, num_samples)
+                        # 重新計算峰值的位置
+                        peaks = {int(peak * self.sample_rate / original_sample_rate) for peak in peaks}
+                    
+                    num_samples = len(signal)
 
-                for start in range(0, num_samples - window_size + 1, self.sample_rate):
-                    end = start + window_size
-                    segment = signal[start:end]
-                    label = np.zeros(window_size, dtype=np.float32)
-                    for peak in peaks:
-                        if start <= peak < end:
-                            # 在峰值位置使用高斯窗函數
-                            peak_pos = peak - start
-                            sigma = 3  # 控制高斯分佈的寬度
-                            for i in range(max(0, peak_pos - 3 * sigma), min(window_size, peak_pos + 3 * sigma + 1)):
-                                label[i] += np.exp(-0.5 * ((i - peak_pos) / sigma) ** 2)
-                    label = np.clip(label, 0, 1)  # 確保標籤值在0和1之間
-                    self.data.append(segment)
-                    self.labels.append(label)
+                    for start in range(0, num_samples - window_size + 1, self.sample_rate):
+                        end = start + window_size
+                        segment = signal[start:end]
+                        label = np.zeros(window_size, dtype=np.float32)
+                        for peak in peaks:
+                            if start <= peak < end:
+                                # 在峰值位置使用高斯窗函數
+                                peak_pos = peak - start
+                                sigma = 3  # 控制高斯分佈的寬度
+                                for i in range(max(0, peak_pos - 3 * sigma), min(window_size, peak_pos + 3 * sigma + 1)):
+                                    label[i] += np.exp(-0.5 * ((i - peak_pos) / sigma) ** 2)
+                        label = np.clip(label, 0, 1)  # 確保標籤值在0和1之間
+                        self.data.append(segment)
+                        self.labels.append(label)
+                except:
+                    print(f'json_file:{json_file} is not valid')
 
 
     def __len__(self):
@@ -59,9 +63,9 @@ class PeakDetectionDataset(Dataset):
 class PeakDetectionDCNN(nn.Module):
     def __init__(self, input_size, num_classes):
         super(PeakDetectionDCNN, self).__init__()
-        self.conv1 = nn.Conv1d(1, 64, kernel_size=3, dilation=1, padding=1)
+        self.conv1 = nn.Conv1d(1, 128, kernel_size=3, dilation=1, padding=1)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv1d(64, 64, kernel_size=3, dilation=2, padding=2)
+        self.conv2 = nn.Conv1d(128, 64, kernel_size=3, dilation=2, padding=2)
         self.relu2 = nn.ReLU(inplace=True)
         self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
         
@@ -168,7 +172,7 @@ def add_padding(signal, window_size):
         padded_signal = signal
     return list(padded_signal)
 
-def predict_window(model, segment, device, start):
+def predict_window(model, device, segment, start):
     segment = np.array(segment, dtype=np.float32).reshape(1, 1, -1)  # 調整為模型的輸入格式
     segment_tensor = torch.tensor(segment).to(device)
 
@@ -178,33 +182,50 @@ def predict_window(model, segment, device, start):
         peak_positions = np.where(predicted == 1)[0] + start  # 計算峰值的絕對位置    
     return peak_positions
 
-def predict_peaks(model, json_file, window_size, device):
+def predict_peaks_json(model, device, json_file):
     with open(json_file, 'r') as f:
         data = json.load(f)
         signal = data['smoothed_data']
         sample_rate = data.get('sample_rate', 100)
-        num_samples = len(signal)
+    return predict_peaks(model, device, signal, sample_rate)
 
+def predict_peaks(model, device, signal, sample_rate):
+    num_samples = len(signal)
+    downsampled_signal = scipy.signal.resample(signal, int(num_samples * 100 / sample_rate))
+    real_peaks = predict_peaks_core(model, device, downsampled_signal)
+    resampled_peaks = resample_peaks(signal, real_peaks, sample_rate)
+    return resampled_peaks
+
+def predict_peaks_core(model, device, signal):
+    sample_rate = 100
+    num_samples = len(signal)
+    window_size = 200
     model.eval()
     peaks_indices = []
-    # 遍歷信號，以sample_rate為步長滑動窗口
-    for start in range(0, num_samples - window_size + 1, int(sample_rate)):
+    
+    # 計算完整的窗口數量
+    num_windows = (num_samples - window_size) // int(sample_rate) + 1
+    
+    # 遍歷每個完整的窗口
+    for i in range(num_windows):
+        start = i * int(sample_rate)
         end = start + window_size
-        if end > num_samples:
-            shifted_start = num_samples - window_size
-            shifted_end = num_samples
-            segment = signal[shifted_start:shifted_end]
-            peak_positions = predict_window(model, segment, device, shifted_start)
-            peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
-            print(f'peak_positions: {peak_positions}, shifted_start: {shifted_start}, shifted_end: {shifted_end}')
-            break
         segment = signal[start:end]
-        peak_positions = predict_window(model, segment, device, start)
+        peak_positions = predict_window(model, device, segment, start)
         peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
-            # peaks_indices.extend(peak_positions.tolist())
-
+    
+    # 處理最後一個可能不完整的窗口
+    if end < num_samples:
+        start = num_samples - window_size
+        end = num_samples
+        segment = signal[start:end]
+        peak_positions = predict_window(model, device, segment, start)
+        peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
+    
     peak_ranges = sorted(peaks_indices)
-    #把peak_ranges每一段連續整數抽出來，把這些連續數段作為index去保留原始訊號值最大的
+    print(f'Detected: {peak_ranges}')
+    if len(peak_ranges) == 0:
+        return []
     real_peaks = []
     last_i = peak_ranges[0]
     argmax_signal = last_i
@@ -217,8 +238,26 @@ def predict_peaks(model, json_file, window_size, device):
                 argmax_signal = i
         last_i = i
 
-    return real_peaks
+    # 將最後一個 argmax_signal 加入到 real_peaks 中
+    real_peaks.append(argmax_signal)
 
+    return real_peaks
+def resample_peaks(signal, peak_indices, original_sample_rate, window_size=0.1):
+    true_peaks = []
+    for peak_index in peak_indices:
+        # 計算峰值點在原始採樣率下的時間戳記
+        timestamp = peak_index / 100
+
+        # 計算時間窗口的起始和結束位置
+        window_start = int(max(0, (timestamp - window_size / 2) * original_sample_rate))
+        window_end = int(min(len(signal), (timestamp + window_size / 2) * original_sample_rate))
+
+        # 在時間窗口內找到訊號值最大的點
+        window_signal = signal[window_start:window_end]
+        true_peak_index = window_start + np.argmax(window_signal)
+        true_peaks.append(true_peak_index)
+
+    return true_peaks
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
@@ -230,7 +269,7 @@ def main():
         return
 
     random.shuffle(json_files)
-    split_point = int(0.8 * len(json_files))
+    split_point = int(0.85 * len(json_files))
     train_files = json_files[:split_point]
     val_files = json_files[split_point:]
     print(f'validation files: {val_files}')
@@ -246,20 +285,53 @@ def main():
 
 
     model = PeakDetectionDCNN(input_size, num_classes).to(device)
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Total number of model parameters: {trainable_params}')
     #如果模型存在
-    if os.path.exists('peak_detection_model.pt'):
-        model.load_state_dict(torch.load('peak_detection_model.pt'))
+    if os.path.exists('peak_detection_model2.pt'):
+        model.load_state_dict(torch.load('peak_detection_model2.pt'))
 
-    # criterion = nn.BCELoss()
-    # optimizer = optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    # train_model(model, train_dataloader, val_dataloader, criterion, optimizer, device)
+    train_model(model, train_dataloader, val_dataloader, criterion, optimizer, device)
 
-    # #儲存模型
-    # torch.save(model.state_dict(), 'peak_detection_model.pt')
+    #儲存模型
+    torch.save(model.state_dict(), 'peak_detection_model2.pt')
 
     json_file = sys.argv[1]
-    predicted_peaks = predict_peaks(model, json_file, window_size, device)
+    predicted_peaks = predict_peaks_json(model, device, json_file)
     print(predicted_peaks)
+
+def detect_peaks_from_json(json_file, model_path='peak_detection_model2.pt'):
+    try:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        window_size = 200
+        num_classes = 1
+        model = PeakDetectionDCNN(window_size, num_classes).to(device)
+        model.load_state_dict(torch.load(model_path))
+
+        predicted_peaks = predict_peaks_json(model, device, json_file)
+        return predicted_peaks
+    except Exception as e:
+        print(f'predict peaks Error: {e}')
+        return []
+def detect_peaks_from_signal(signal, sample_rate, model_path='peak_detection_model2.pt'):
+    try:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        window_size = 200
+        num_classes = 1
+        model = PeakDetectionDCNN(window_size, num_classes).to(device)
+        model.load_state_dict(torch.load(model_path))
+
+        predicted_peaks = predict_peaks(model, device, signal, sample_rate)
+        return predicted_peaks
+    except Exception as e:
+        print(f'predict peaks Error: {e}')
+        return []
+
 if __name__ == '__main__':
     main()
+    # json_file = sys.argv[1]
+    # predicted_peaks = detect_peaks_from_json(json_file)
+    # print(predicted_peaks)

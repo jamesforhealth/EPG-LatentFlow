@@ -9,7 +9,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks
 from influxDB_downloader import get_user_sessions, get_session_data, format_timestamp, sanitize_filename
-
+from model_find_peaks import detect_peaks_from_signal
 def find_peaks_helper(data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
     peaks_top = []
     peaks_bottom = []
@@ -113,6 +113,7 @@ def find_peaks_helper(data, sample_rate, drop_rate, drop_rate_gain, timer_init, 
 def findValleysBasedOnPeaks(data, peaks, sample_rate):
     valleys = []
     searchRange = int((15 * sample_rate) / 100)
+    print(f'searchRange:{searchRange}, peaks:{peaks}, sample_rate:{sample_rate}')
 
     for peak in peaks:
         foundValley = False
@@ -120,7 +121,7 @@ def findValleysBasedOnPeaks(data, peaks, sample_rate):
         for i in range(1, searchRange + 1):
             if peak + i + 1 >= len(data):
                 break
-            if data[peak + i] < data[peak + i - 1] and data[peak + i] < data[peak + i + 1]:
+            if data[peak + i] <= data[peak + i - 1] and data[peak + i] <= data[peak + i + 1]:
                 valleys.append(peak + i)
                 foundValley = True
                 break
@@ -331,6 +332,14 @@ class MainWindow(QMainWindow):
         self.c_points_edit.textChanged.connect(self.update_c_points_from_edit)
 
         points_layout = QVBoxLayout()
+        self.recalculate_y_button = QPushButton("Recalculate Y Points")
+        self.recalculate_y_button.clicked.connect(self.recalculate_y_points)
+        points_layout.addWidget(self.recalculate_y_button)
+
+        self.recalculate_zabc_button = QPushButton("Recalculate ZABC Points")
+        self.recalculate_zabc_button.clicked.connect(self.recalculate_zabc_points)
+        points_layout.addWidget(self.recalculate_zabc_button)
+
         points_layout.addWidget(self.selected_points_label)
         points_layout.addWidget(QLabel("Points Index:"))
         points_layout.addWidget(QLabel("X Points:"))
@@ -400,6 +409,7 @@ class MainWindow(QMainWindow):
                     note = sessions["session_data"]["session_notes"][sessions["timestamp"].index(timestamp)]
                     macaddress = sessions["session_data"]["BLE_MAC_ADDRESS"][sessions["timestamp"].index(timestamp)]
                     file_name = f"({format_timestamp(timestamp)}),({sanitize_filename(note)}).json"
+                    print(f'file_name: {file_name}')
                     file_path = os.path.join(user_dir, file_name)
 
                     if not os.path.exists(file_path):
@@ -583,18 +593,17 @@ class MainWindow(QMainWindow):
 
     def load_selected_file(self, item, column):
         if item.childCount() == 0:  # 如果選擇的是檔案
+            self.clear_data()
             file_path = self.get_file_path(item)
             self.current_relative_path = os.path.relpath(file_path, "DB")
             labeled_file_path = os.path.join("point_labelled_DB", self.current_relative_path)
             if os.path.exists(labeled_file_path):
                 with open(labeled_file_path, 'r') as file:
                     labeled_data = json.load(file)
-                self.clear_data()
                 self.load_labeled_data(labeled_data)
             else:
                 with open(file_path, 'r') as file:
                     data = json.load(file)
-                self.clear_data()
                 self.process_data(data)
 
             self.selected_points.clear()  # 清空Selected Point
@@ -609,7 +618,8 @@ class MainWindow(QMainWindow):
         self.z_points = data['z_points']
         self.a_points = data['a_points']
         self.b_points = data['b_points']
-        self.c_points = data['c_points']            
+        self.c_points = data['c_points']      
+        self.sample_rate = data['sample_rate']      
     def clear_data(self):
         self.raw_data = []
         self.smoothed_data = []
@@ -626,7 +636,7 @@ class MainWindow(QMainWindow):
         print(f'Sample_rate: {self.sample_rate}')
         scale = int(3 * self.sample_rate / 100)
         self.smoothed_data = gaussian_smooth(self.raw_data, scale, scale/4)
-        if len(self.smoothed_data) > 0 : self.find_peaks_and_valleys(self.smoothed_data, self.sample_rate, 0.3, 0.9, 0.3, 0.03, 0.03, "on_peak", 0.06)
+        if len(self.smoothed_data) > 0 : self.find_peaks_and_valleys(self.smoothed_data, int(self.sample_rate))#, 0.3, 0.9, 0.3, 0.03, 0.03, "on_peak", 0.06)
         self.find_points()
 
 
@@ -638,12 +648,14 @@ class MainWindow(QMainWindow):
         path.reverse()
         return os.path.join("DB", *path)
 
-    def find_peaks_and_valleys(self, data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
-        peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
-            data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold
-        )
-        self.x_points = peaks_top
-        self.y_points = findValleysBasedOnPeaks(data, peaks_top, sample_rate)
+    def find_peaks_and_valleys(self, data, sample_rate):#, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
+        # peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
+        #     data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold
+        # )
+        self.x_points = detect_peaks_from_signal(data, sample_rate)
+        self.y_points = findValleysBasedOnPeaks(data, self.x_points, sample_rate)
+
+
 
     def find_points(self):
         results = find_epg_points(self.smoothed_data, self.x_points, self.y_points, self.sample_rate)
@@ -662,6 +674,36 @@ class MainWindow(QMainWindow):
                     self.c_points.append(c)
 
 
+
+    def recalculate_y_points(self):
+        if len(self.smoothed_data) > 0 and len(self.x_points) > 0:
+            self.y_points = findValleysBasedOnPeaks(self.smoothed_data, self.x_points, self.sample_rate)
+            self.update_points_edit()
+            self.plot_data()
+
+    def recalculate_zabc_points(self):
+        if len(self.smoothed_data) > 0 and len(self.x_points) > 0 and len(self.y_points) > 0:
+            self.z_points = []
+            self.a_points = []
+            self.b_points = []
+            self.c_points = []
+
+            results = find_epg_points(self.smoothed_data, self.x_points, self.y_points, self.sample_rate)
+            for result in results:
+                if len(result) == 2:
+                    z, a = result[0]
+                    b, c = result[1]
+                    if z != -1:
+                        self.z_points.append(z)
+                    if a != -1:
+                        self.a_points.append(a)
+                    if b != -1:
+                        self.b_points.append(b)
+                    if c != -1:
+                        self.c_points.append(c)
+
+            self.update_points_edit()
+            self.plot_data()
 
 
 

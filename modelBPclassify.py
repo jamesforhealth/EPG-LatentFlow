@@ -8,135 +8,15 @@ import numpy as np
 import math
 
 map_dir = {
-    'high': '111',
-    'middle': '4',
-    'low': '42',
+    '111' : 'high',
+    '4' : 'middle',
+    '42' : 'low',
 }
 label_map = {
     'high': 0,
     'middle': 1,
     'low': 2,
 }
-
-# class BPDataset(Dataset):
-#     def __init__(self, data_folder):
-#         self.data_folder = data_folder
-#         self.data = []
-#         self.labels = []
-#         self.load_data()
-
-#     def load_data(self):
-#         for BP_class, dir_name in map_dir.items():
-#             dir_path = os.path.join(self.data_folder, dir_name)
-#             for file_name in os.listdir(dir_path):
-#                 if file_name.endswith('.json'):
-#                     file_path = os.path.join(dir_path, file_name)
-#                     with open(file_path, 'r') as f:
-#                         data = json.load(f)
-#                         smoothed_data = data['smoothed_data']
-#                         x_points = data['x_points']
-#                         y_points = data['y_points']
-#                         z_points = data['z_points']
-#                         a_points = data['a_points']
-#                         b_points = data['b_points']
-#                         c_points = data['c_points']
-
-#                         signal_points = np.zeros_like(smoothed_data, dtype=int)
-#                         for point in x_points:
-#                             signal_points[point] = 1
-#                         for point in y_points:
-#                             signal_points[point] = 2
-#                         for point in z_points:
-#                             signal_points[point] = 3
-#                         for point in a_points:
-#                             signal_points[point] = 4
-#                         for point in b_points:
-#                             signal_points[point] = 5
-#                         for point in c_points:
-#                             signal_points[point] = 6
-
-#                         signal_data = np.stack([smoothed_data, signal_points], axis=1)
-#                         self.data.append(torch.tensor(signal_data, dtype=torch.float32))
-#                         self.labels.append(BP_class)
-
-#     def __len__(self):
-#         return len(self.data)
-
-#     def __getitem__(self, idx):
-#         signal = self.data[idx]
-#         label = self.labels[idx]
-#         return signal, label
-
-# def collate_fn(batch):
-#     signals, labels = zip(*batch)
-#     padded_signals = nn.utils.rnn.pad_sequence(signals, batch_first=True, padding_value=0)
-#     labels = [label_map[label] for label in labels]
-#     labels = torch.tensor(labels, dtype=torch.long)
-#     return padded_signals, labels
-
-# class PositionalEncoding(nn.Module):
-#     def __init__(self, d_model, max_len=5000):
-#         super(PositionalEncoding, self).__init__()
-#         pe = torch.zeros(max_len, d_model)
-#         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-#         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-#         pe[:, 0::2] = torch.sin(position * div_term)
-#         pe[:, 1::2] = torch.cos(position * div_term)
-#         pe = pe.unsqueeze(0).transpose(0, 1)
-#         self.register_buffer('pe', pe)
-
-#     def forward(self, x):
-#         x = x + self.pe[:x.size(0), :]
-#         return x
-
-# class TransformerClassifier(nn.Module):
-#     def __init__(self, input_size, num_classes, d_model, nhead, num_layers):
-#         super(TransformerClassifier, self).__init__()
-#         self.embedding = nn.Linear(input_size, d_model)
-#         self.pos_encoder = PositionalEncoding(d_model)
-#         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
-#         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-#         self.classifier = nn.Linear(d_model, num_classes)
-
-#     def forward(self, x):
-#         x = self.embedding(x)
-#         x = self.pos_encoder(x)
-#         x = self.transformer_encoder(x)
-#         x = x.mean(dim=1)
-#         x = self.classifier(x)
-#         return x
-
-# def train(model, dataloader, criterion, optimizer, device):
-#     model.train()
-#     running_loss = 0.0
-#     for signals, labels in dataloader:
-#         signals = signals.to(device)
-#         labels = labels.to(device)
-#         optimizer.zero_grad()
-#         outputs = model(signals)
-#         loss = criterion(outputs, labels)
-#         loss.backward()
-#         optimizer.step()
-#         running_loss += loss.item()
-#     return running_loss / len(dataloader)
-
-# def evaluate(model, dataloader, criterion, device):
-#     model.eval()
-#     running_loss = 0.0
-#     correct = 0
-#     total = 0
-#     with torch.no_grad():
-#         for signals, labels in dataloader:
-#             signals = signals.to(device)
-#             labels = labels.to(device)
-#             outputs = model(signals)
-#             loss = criterion(outputs, labels)
-#             running_loss += loss.item()
-#             _, predicted = torch.max(outputs, 1)
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
-#     accuracy = correct / total
-#     return running_loss / len(dataloader), accuracy
 
 class PulseDataset(Dataset):
     def __init__(self, data_folder):
@@ -145,7 +25,7 @@ class PulseDataset(Dataset):
         self.load_data(data_folder)
 
     def load_data(self, data_folder):
-        for label, dir_name in map_dir.items():
+        for dir_name, label  in map_dir.items():
             dir_path = os.path.join(data_folder, dir_name)
             for file_name in os.listdir(dir_path):
                 if file_name.endswith('.json'):
