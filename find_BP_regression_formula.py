@@ -5,12 +5,14 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 # 從Google Sheets讀取資料
-url = f'參數集合v2測試 - systolic_120.csv'
+url = '參數集合v2測試 - systolic_120.csv'
+url = '參數集合v2_test - systolic_120.csv'
 data = pd.read_csv(url)
 
 #考慮帝82列之前的data就好然後沒有資料的列也不需要
-data = data.iloc[:75, :]
-data = data.dropna()
+# data = data.iloc[:50, :]
+# data = data.dropna()
+#print data shape
 
 # 提取所需的特徵和目標變數
 # features = ['xy interval', 'xz interval', 'xa interval', 'xb interval', 'xc interval', 
@@ -22,7 +24,10 @@ features = ['xy interval', 'xz interval', 'xa interval', 'xb interval', 'xc inte
 X = data[features].values
 y_sbp = data['systolic'].values
 y_dbp = data['diastolic'].values
-
+print(data.shape)
+print(X.shape)
+print(y_sbp.shape)
+print(y_dbp.shape)
 
 # 將缺失值替換為0
 X = np.nan_to_num(X)
@@ -72,7 +77,7 @@ print(f"DBP: {np.mean(dbp_train_errors):.4f}")
 
 print("Test Set Mean Error:")
 print(f"SBP: {np.mean(sbp_test_errors):.4f}")
-input(f"DBP: {np.mean(dbp_test_errors):.4f}")
+print(f"DBP: {np.mean(dbp_test_errors):.4f}")
 
 # 輸出每個人的MAD
 print("=" * 50)
@@ -82,7 +87,9 @@ MAD_map = {}
 
 # 列出訓練集的預測值、實際值以及誤差
 print("Training Set Predictions, Actual Values, and Errors:")
+print(f"indices_train: {indices_train}")
 for i, idx in enumerate(indices_train):
+    # print(f"d = {data.iloc[idx]}")
     name = data.iloc[idx]['name']
     if name not in MAD_map:
         MAD_map[name] = {'sbp_error': [], 'dbp_error': []}
@@ -120,29 +127,29 @@ for name in MAD_map:
 
 
 # 印出回歸模型的計算公式和係數
-# print("\nRegression Formula:")
-# feature_names = poly.get_feature_names_out(features)
-# formula = "Systolic = "
-# for i in range(len(model_sbp.coef_)):
-#     if i == 0:
-#         formula += f"{model_sbp.intercept_:.4f}"
-#     else:
-#         if model_sbp.coef_[i] >= 0:
-#             formula += f" + {model_sbp.coef_[i]:.4f} * {feature_names[i]}"
-#         else:
-#             formula += f" - {abs(model_sbp.coef_[i]):.4f} * {feature_names[i]}"
-# print(formula)
+print("\nRegression Formula:")
+feature_names = poly.get_feature_names_out(features)
+formula = "Systolic = "
+for i in range(len(model_sbp.coef_)):
+    if i == 0:
+        formula += f"{model_sbp.intercept_:.4f}"
+    else:
+        if model_sbp.coef_[i] >= 0:
+            formula += f" + {model_sbp.coef_[i]:.4f} * {feature_names[i]}"
+        else:
+            formula += f" - {abs(model_sbp.coef_[i]):.4f} * {feature_names[i]}"
+print(formula)
 
-# formula = "Diastolic = "
-# for i in range(len(model_dbp.coef_)):
-#     if i == 0:
-#         formula += f"{model_dbp.intercept_:.4f}"
-#     else:
-#         if model_dbp.coef_[i] >= 0:
-#             formula += f" + {model_dbp.coef_[i]:.4f} * {feature_names[i]}"
-#         else:
-#             formula += f" - {abs(model_dbp.coef_[i]):.4f} * {feature_names[i]}"
-# print(formula)
+formula = "Diastolic = "
+for i in range(len(model_dbp.coef_)):
+    if i == 0:
+        formula += f"{model_dbp.intercept_:.4f}"
+    else:
+        if model_dbp.coef_[i] >= 0:
+            formula += f" + {model_dbp.coef_[i]:.4f} * {feature_names[i]}"
+        else:
+            formula += f" - {abs(model_dbp.coef_[i]):.4f} * {feature_names[i]}"
+print(formula)
 
 
 # personalized_models_sbp = {}
