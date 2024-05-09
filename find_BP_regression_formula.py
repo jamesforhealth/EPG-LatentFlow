@@ -117,11 +117,16 @@ for i, idx in enumerate(indices_test):
 for name in MAD_map:
     mean_sbp_error = np.mean(MAD_map[name]['sbp_error'])
     mean_dbp_error = np.mean(MAD_map[name]['dbp_error'])
+    std_sbp_error = np.std(MAD_map[name]['sbp_error'])
+    std_dbp_error = np.std(MAD_map[name]['dbp_error'])
+    MAD_sbp = (np.power(std_sbp_error, 2) + np.power(mean_sbp_error, 2))/np.sqrt(2 * np.power(std_sbp_error, 2) + np.power(mean_sbp_error, 2))
+    MAD_dbp = (np.power(std_dbp_error, 2) + np.power(mean_dbp_error, 2))/np.sqrt(2 * np.power(std_dbp_error, 2) + np.power(mean_dbp_error, 2))
+
     # print(f'Name: {name}, Mean SBP Error: {mean_sbp_error:.4f}, Mean DBP Error: {mean_dbp_error:.4f}, sbp_error: {MAD_map[name]["sbp_error"]}, dbp_error: {MAD_map[name]["dbp_error"]}')
-    MAD_map[name]['sbp_error'] = [np.abs(e - mean_sbp_error) for e in MAD_map[name]['sbp_error']]
-    MAD_map[name]['dbp_error'] = [np.abs(e - mean_dbp_error) for e in MAD_map[name]['dbp_error']]
-    MAD_sbp = np.mean(MAD_map[name]['sbp_error'])
-    MAD_dbp = np.mean(MAD_map[name]['dbp_error'])
+    # MAD_map[name]['sbp_error'] = [np.abs(e - mean_sbp_error) for e in MAD_map[name]['sbp_error']]
+    # MAD_map[name]['dbp_error'] = [np.abs(e - mean_dbp_error) for e in MAD_map[name]['dbp_error']]
+    # MAD_sbp = np.mean(MAD_map[name]['sbp_error'])
+    # MAD_dbp = np.mean(MAD_map[name]['dbp_error'])
 
     print(f"Name: {name}, MAD SBP: {MAD_sbp:.4f}, MAD DBP: {MAD_dbp:.4f}")
 
@@ -135,9 +140,9 @@ for i in range(len(model_sbp.coef_)):
         formula += f"{model_sbp.intercept_:.4f}"
     else:
         if model_sbp.coef_[i] >= 0:
-            formula += f" + {model_sbp.coef_[i]:.4f} * {feature_names[i]}"
+            formula += f" + {model_sbp.coef_[i]:.4f}({feature_names[i]})"
         else:
-            formula += f" - {abs(model_sbp.coef_[i]):.4f} * {feature_names[i]}"
+            formula += f" - {abs(model_sbp.coef_[i]):.4f}({feature_names[i]})"
 print(formula)
 
 formula = "Diastolic = "
@@ -146,9 +151,9 @@ for i in range(len(model_dbp.coef_)):
         formula += f"{model_dbp.intercept_:.4f}"
     else:
         if model_dbp.coef_[i] >= 0:
-            formula += f" + {model_dbp.coef_[i]:.4f} * {feature_names[i]}"
+            formula += f" + {model_dbp.coef_[i]:.4f}({feature_names[i]})"
         else:
-            formula += f" - {abs(model_dbp.coef_[i]):.4f} * {feature_names[i]}"
+            formula += f" - {abs(model_dbp.coef_[i]):.4f}({feature_names[i]})"
 print(formula)
 
 
