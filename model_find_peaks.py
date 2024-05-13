@@ -190,6 +190,7 @@ def predict_peaks_json(model, device, json_file):
     return predict_peaks(model, device, signal, sample_rate)
 
 def predict_peaks(model, device, signal, sample_rate):
+    signal = np.asarray(signal, dtype=np.float32)  # 將 signal 轉換為 NumPy 數組並指定數據類型
     num_samples = len(signal)
     downsampled_signal = scipy.signal.resample(signal, int(num_samples * 100 / sample_rate))
     real_peaks = predict_peaks_core(model, device, downsampled_signal)
@@ -313,11 +314,18 @@ def detect_peaks_from_json(json_file, model_path='peak_detection_model2.pt'):
 
         predicted_peaks = predict_peaks_json(model, device, json_file)
         return predicted_peaks
+    except TypeError as e:
+        print(f'Type error in detect_peaks_from_json: {e}')
+        return []
     except Exception as e:
-        print(f'predict peaks Error: {e}')
+        print(f'Error in detect_peaks_from_json: {e}')
         return []
 def detect_peaks_from_signal(signal, sample_rate, model_path='peak_detection_model2.pt'):
     try:
+        # print(f'signal : {signal}')
+        # print(f"Input signal type: {type(signal)}")
+        # print(f"Input signal dtype: {np.array(signal).dtype}")
+        
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         window_size = 200
         num_classes = 1
@@ -326,10 +334,12 @@ def detect_peaks_from_signal(signal, sample_rate, model_path='peak_detection_mod
 
         predicted_peaks = predict_peaks(model, device, signal, sample_rate)
         return predicted_peaks
-    except Exception as e:
-        print(f'predict peaks Error: {e}')
+    except TypeError as e:
+        print(f'Type error in detect_peaks_from_signal: {e}')
         return []
-
+    except Exception as e:
+        print(f'Error in detect_peaks_from_signal: {e}')
+        return []
 if __name__ == '__main__':
     main()
     # json_file = sys.argv[1]

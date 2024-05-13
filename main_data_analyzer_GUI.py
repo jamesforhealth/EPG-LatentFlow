@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip
 from PyQt5.QtGui import QMouseEvent, QColor
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 import pyqtgraph as pg
@@ -241,6 +241,10 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
+        self.anomaly_list = []
+        self.selected_start_peak_idx = None
+        self.selected_end_peak_idx = None
+        self.nearest_peak_idx = None
         self.sample_rate = 100
         self.selected_points = []
 
@@ -332,6 +336,18 @@ class MainWindow(QMainWindow):
         self.c_points_edit.textChanged.connect(self.update_c_points_from_edit)
 
         points_layout = QVBoxLayout()
+        self.anomaly_text_edit = QTextEdit()
+        self.anomaly_text_edit.setReadOnly(True)
+        points_layout.addWidget(QLabel("Anomaly Segment Labeling (按住Control鍵之後用左鍵依序選取頭尾的peak點或是整筆量測的首尾點):"))
+
+        anomaly_text_layout = QHBoxLayout()
+        anomaly_text_layout.addWidget(self.anomaly_text_edit)
+
+        self.clear_anomaly_button = QPushButton("Clear")
+        self.clear_anomaly_button.clicked.connect(self.clear_anomaly_labels)
+        anomaly_text_layout.addWidget(self.clear_anomaly_button)
+        points_layout.addLayout(anomaly_text_layout)
+        
         self.recalculate_y_button = QPushButton("Recalculate Y Points")
         self.recalculate_y_button.clicked.connect(self.recalculate_y_points)
         points_layout.addWidget(self.recalculate_y_button)
@@ -432,6 +448,39 @@ class MainWindow(QMainWindow):
 
             self.load_db_files()
 
+    def find_nearest_peak(self, x):
+        if x == 0:
+            return -1
+        elif x == len(self.smoothed_data) - 1:
+            return len(self.x_points)
+        else:
+            nearest_peak_idx = None
+            min_distance = float('inf')
+            for peak_idx in range(len(self.x_points)):
+                peak_x = self.x_points[peak_idx]
+                distance = abs(x - peak_x)
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_peak_idx = peak_idx
+            return nearest_peak_idx
+
+    def highlight_peak(self, peak_idx):
+        if hasattr(self, 'peak_highlight'):
+            self.plot_widget.removeItem(self.peak_highlight)
+        if peak_idx == -1:
+            x = 0
+        elif peak_idx == len(self.x_points):
+            x = len(self.smoothed_data) - 1
+        else:
+            x = self.x_points[peak_idx]
+        self.peak_highlight = self.plot_widget.plot([x], [self.smoothed_data[x]], pen=None, symbol='o', symbolSize=10, symbolBrush=(255, 0, 0))
+
+    def clear_peak_highlight(self):
+        if hasattr(self, 'peak_highlight'):
+            self.plot_widget.removeItem(self.peak_highlight)
+            del self.peak_highlight
+            self.nearest_peak_idx = None
+
     def on_mouse_move(self, pos):
         if self.plot_widget.sceneBoundingRect().contains(pos):
             mouse_point = self.plot_widget.plotItem.vb.mapSceneToView(pos)
@@ -440,7 +489,7 @@ class MainWindow(QMainWindow):
 
             if 0 <= x < len(self.smoothed_data):
                 self.floating_marker.setData([x], [self.smoothed_data[x]])
-                if  abs(y - self.smoothed_data[x]) < 10:
+                if abs(y - self.smoothed_data[x]) < 10:
                     if x in self.x_points:
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"X Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                     elif x in self.y_points:
@@ -457,30 +506,57 @@ class MainWindow(QMainWindow):
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"Signal\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                 else:
                     QToolTip.hideText()
+
+                if QApplication.keyboardModifiers() == Qt.ControlModifier:
+                    nearest_peak_idx = self.find_nearest_peak(x)
+                    if nearest_peak_idx is not None:
+                        self.highlight_peak(nearest_peak_idx)
+                        self.nearest_peak_idx = nearest_peak_idx
+                    else:
+                        self.clear_peak_highlight()
+                else:
+                    self.clear_peak_highlight()
             else:
                 self.floating_marker.setData([], [])
                 QToolTip.hideText()
+                self.clear_peak_highlight()
 
     def on_mouse_clicked(self, event):
         if event.button() == Qt.LeftButton:
             mouse_point = self.plot_widget.plotItem.vb.mapSceneToView(event.scenePos())
             x = int(mouse_point.x())
             if 0 <= x < len(self.smoothed_data):
-                if x not in self.selected_points:
-                    self.selected_points.append(x)
-                else:
-                    self.selected_points.remove(x)
-                self.update_selected_points_label()
-                self.plot_data()
+                if event.modifiers() == Qt.ControlModifier:  # 按住Ctrl鍵選擇第幾個peak到第幾個peak，中間的區段要標註穿戴狀態
+                    if self.selected_start_peak_idx is None:
+                        if self.nearest_peak_idx is not None:
+                            self.selected_start_peak_idx = self.nearest_peak_idx
+                        elif x == 0:  # 第一個點
+                            self.selected_start_peak_idx = -1
+                        elif x in self.x_points:
+                            self.selected_start_peak_idx = self.x_points.index(x)
+                    else:
+                        if self.nearest_peak_idx is not None:
+                            self.selected_end_peak_idx = self.nearest_peak_idx
+                        elif x == len(self.smoothed_data) - 1:  # 最後一個點
+                            self.selected_end_peak_idx = len(self.x_points)
+                        elif x in self.x_points:
+                            self.selected_end_peak_idx = self.x_points.index(x)
+                        anomaly = self.label_anomaly()  # 調用標註異常區段的方法
+                        if anomaly is not None:
+                            (start_peak_idx, end_peak_idx, wearing_status) = anomaly
+                            self.plot_anomaly_segment(start_peak_idx, end_peak_idx, wearing_status)
+                            self.clear_segment(start_peak_idx, end_peak_idx, wearing_status)
+                        self.selected_start_peak_idx = None
+                        self.selected_end_peak_idx = None
+                else:  # 普通點擊選擇點
+                    if x not in self.selected_points:
+                        self.selected_points.append(x)
+                    else:
+                        self.selected_points.remove(x)
+                    self.update_selected_points_label()
+                    self.plot_data()
         elif event.button() == Qt.RightButton:
             self.plot_widget.plotItem.vb.autoRange()
-
-    def on_mouse_double_clicked(self, event):
-        if event.button() == Qt.LeftButton:
-            self.selected_points.clear()
-            self.update_selected_points_label()
-            self.plot_data()
-
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_X:
             self.label_selected_points('x')
@@ -566,6 +642,7 @@ class MainWindow(QMainWindow):
             "b_points": self.b_points,
             "c_points": self.c_points,
             "sample_rate": self.sample_rate,
+            "anomaly_list": self.anomaly_list,
             # 這裡可以添加更多需要保存的數據
         }
         
@@ -619,7 +696,14 @@ class MainWindow(QMainWindow):
         self.a_points = data['a_points']
         self.b_points = data['b_points']
         self.c_points = data['c_points']      
-        self.sample_rate = data['sample_rate']      
+        self.sample_rate = data['sample_rate']  
+        self.anomaly_list = data['anomaly_list']
+
+    def clear_anomaly_labels(self):
+        self.anomaly_text_edit.clear()
+        self.anomaly_list.clear()
+        self.plot_data()
+
     def clear_data(self):
         self.raw_data = []
         self.smoothed_data = []
@@ -652,6 +736,7 @@ class MainWindow(QMainWindow):
         # peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
         #     data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold
         # )
+        data = np.asarray(data, dtype=np.float32) 
         self.x_points = detect_peaks_from_signal(data, sample_rate)
         self.y_points = findValleysBasedOnPeaks(data, self.x_points, sample_rate)
 
@@ -680,6 +765,7 @@ class MainWindow(QMainWindow):
             self.y_points = findValleysBasedOnPeaks(self.smoothed_data, self.x_points, self.sample_rate)
             self.update_points_edit()
             self.plot_data()
+            self.clear_anomaly_segments()
 
     def recalculate_zabc_points(self):
         if len(self.smoothed_data) > 0 and len(self.x_points) > 0 and len(self.y_points) > 0:
@@ -704,6 +790,7 @@ class MainWindow(QMainWindow):
 
             self.update_points_edit()
             self.plot_data()
+            self.clear_anomaly_segments()
 
 
 
@@ -717,40 +804,99 @@ class MainWindow(QMainWindow):
             
     def update_x_points_from_edit(self):
         try:
-            self.x_points = list(map(int, self.x_points_edit.text().split(',')))
+            self.x_points = [int(x) for x in self.x_points_edit.text().split(',') if x.strip()]
             self.plot_data()
         except ValueError as e:
             print(f'ValueError: {e}')
+
     def update_y_points_from_edit(self):
         try:
-            self.y_points = list(map(int, self.y_points_edit.text().split(',')))
+            self.y_points = [int(y) for y in self.y_points_edit.text().split(',') if y.strip()]
             self.plot_data()
         except ValueError as e:
-            print(f'ValueError: {e}')  
+            print(f'ValueError: {e}')
+
     def update_z_points_from_edit(self):
         try:
-            self.z_points = list(map(int, self.z_points_edit.text().split(',')))
+            self.z_points = [int(z) for z in self.z_points_edit.text().split(',') if z.strip()]
             self.plot_data()
         except ValueError as e:
-            print(f'ValueError: {e}')  
+            print(f'ValueError: {e}')
+
     def update_a_points_from_edit(self):
         try:
-            self.a_points = list(map(int, self.a_points_edit.text().split(',')))
+            self.a_points = [int(a) for a in self.a_points_edit.text().split(',') if a.strip()]
             self.plot_data()
         except ValueError as e:
-            print(f'ValueError: {e}')  
+            print(f'ValueError: {e}')
+
     def update_b_points_from_edit(self):
         try:
-            self.b_points = list(map(int, self.b_points_edit.text().split(',')))
+            self.b_points = [int(b) for b in self.b_points_edit.text().split(',') if b.strip()]
             self.plot_data()
         except ValueError as e:
-            print(f'ValueError: {e}')  
+            print(f'ValueError: {e}')
+
     def update_c_points_from_edit(self):
         try:
-            self.c_points = list(map(int, self.c_points_edit.text().split(',')))
+            self.c_points = [int(c) for c in self.c_points_edit.text().split(',') if c.strip()]
             self.plot_data()
         except ValueError as e:
-            print(f'ValueError: {e}')          
+            print(f'ValueError: {e}')
+
+    def label_anomaly(self):
+        if self.selected_start_peak_idx is not None and self.selected_end_peak_idx is not None:
+            if self.selected_start_peak_idx <= self.selected_end_peak_idx:
+                wearing_status, ok = QInputDialog.getItem(self, "Select Wearing Status", "Wearing Status:", ["underdamping", "overdamping", "noise", "moving", "not sure"], 0, False)
+                if ok:
+                    self.anomaly_list.append((self.selected_start_peak_idx, self.selected_end_peak_idx, wearing_status))
+                    anomaly_label = f"Anomaly: Start Peak: {self.selected_start_peak_idx}, End Peak: {self.selected_end_peak_idx}, Wearing Status: {wearing_status}\n"
+                    print(f'anomaly_label: {anomaly_label}')
+                    self.anomaly_text_edit.append(anomaly_label)  # 將字符串附加到 QTextEdit
+                    return (self.selected_start_peak_idx, self.selected_end_peak_idx, wearing_status)
+            else:
+                QMessageBox.warning(self, "Invalid Selection", "The start peak should come before the end peak.")
+        else:
+            QMessageBox.warning(self, "Incomplete Selection", "Please select both the start and end peaks.")
+
+
+    def clear_segment(self, start_peak_idx, end_peak_idx, wearing_status):
+        print(f'clear_segment: {start_peak_idx}, {end_peak_idx}, {wearing_status}')
+        if wearing_status in ["moving", "noise"]:#移除所有start_peak_idx, end_peak_idx之間的xyzabc點
+            start_x = self.x_points[start_peak_idx] if start_peak_idx != -1 else 0
+            end_x = self.x_points[end_peak_idx] if end_peak_idx != len(self.x_points) else len(self.smoothed_data) - 1
+
+            # self.x_points = [x for x in self.x_points if x < start_x or x > end_x]
+            self.y_points = [y for y in self.y_points if y < start_x or y > end_x]
+            self.z_points = [z for z in self.z_points if z < start_x or z > end_x]
+            self.a_points = [a for a in self.a_points if a < start_x or a > end_x]
+            self.b_points = [b for b in self.b_points if b < start_x or b > end_x]
+            self.c_points = [c for c in self.c_points if c < start_x or c > end_x]
+
+            self.update_points_edit()
+
+    def clear_anomaly_segments(self):
+        for anomaly in self.anomaly_list:
+            start_peak_idx, end_peak_idx, wearing_status = anomaly
+            self.clear_segment(start_peak_idx, end_peak_idx, wearing_status)            
+
+    def plot_anomaly_segment(self, start_peak_idx, end_peak_idx, wearing_status):
+        start_x = self.x_points[start_peak_idx] if start_peak_idx != -1 else 0
+        end_x = self.x_points[end_peak_idx] if end_peak_idx != len(self.x_points) else len(self.smoothed_data) - 1
+        print(f'plot_anomaly_segment: {start_x}, {end_x}, {wearing_status}')
+        if wearing_status == "underdamping":
+            color = (255, 0, 0)  # 紅色
+        elif wearing_status == "overdamping": # 紫色
+            color = (255, 0, 255)  # 紫色
+        elif wearing_status == "noise": #深灰色
+            color = (100, 100, 100)  # 灰色
+        elif wearing_status == "moving": #深黃色
+            color = (80, 100, 0)  # 黃色
+        elif wearing_status == "not sure": #粉紅色
+            color = (200, 100, 100)  # 粉紅色
+        
+        self.plot_widget.plot(list(range(start_x, end_x + 1)), self.smoothed_data[start_x:end_x + 1], pen=pg.mkPen(color=color, width=4), name=f'Anomaly ({wearing_status})')
+        
 
     def plot_data(self):
         self.plot_widget.clear()
@@ -760,6 +906,10 @@ class MainWindow(QMainWindow):
 
         if self.checkbox_smoothed_data.isChecked():
             self.plot_widget.plot(self.smoothed_data, pen=pg.mkPen(color=(0, 0, 255), width=2), name='Smoothed Data')
+
+        for anomaly in self.anomaly_list: 
+            start_peak_idx, end_peak_idx, wearing_status = anomaly
+            self.plot_anomaly_segment(start_peak_idx, end_peak_idx, wearing_status)    
 
         if self.checkbox_x_points.isChecked():
             x_points_in_range = [i for i in self.x_points if 0 <= i < len(self.smoothed_data)]
