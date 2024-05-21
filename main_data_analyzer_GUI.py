@@ -247,6 +247,7 @@ class MainWindow(QMainWindow):
         self.nearest_peak_idx = None
         self.sample_rate = 100
         self.selected_points = []
+        self.current_relative_path = ''
 
         self.selected_points_label = QLabel("Selected Points: []")
 
@@ -265,7 +266,16 @@ class MainWindow(QMainWindow):
         user_id_layout.addWidget(self.user_id_edit)
         user_id_layout.addWidget(self.reload_button)
 
+        self.db_folder = "DB"
+        self.labeled_db_folder = "labeled_DB"
+
+        self.db_combo_box = QComboBox()
+        self.db_combo_box.addItem("DB")
+        self.db_combo_box.addItem("labeled_DB")
+        self.db_combo_box.currentIndexChanged.connect(self.update_file_tree)
+
         file_tree_layout = QVBoxLayout()
+        file_tree_layout.addWidget(self.db_combo_box)
         file_tree_layout.addLayout(user_id_layout)
         file_tree_layout.addWidget(self.file_tree_widget)
 
@@ -628,7 +638,7 @@ class MainWindow(QMainWindow):
 
 
     def save_labeled_data(self):
-        target_dir = os.path.join("point_labelled_DB", os.path.dirname(self.current_relative_path))
+        target_dir = os.path.join("labeled_DB", os.path.dirname(self.current_relative_path))
         os.makedirs(target_dir, exist_ok=True)  # 創建目標目錄
         target_path = os.path.join(target_dir, os.path.basename(self.current_relative_path))
         
@@ -645,14 +655,21 @@ class MainWindow(QMainWindow):
             "anomaly_list": self.anomaly_list,
             # 這裡可以添加更多需要保存的數據
         }
-        
+        print('Saving labeled data:', data)
         with open(target_path, 'w') as f:
             json.dump(data, f, indent=4)
         
         print("Saved labeled data to:", target_path)
+
+
+    def update_file_tree(self, index):
+        if index == 0:
+            self.load_db_files(self.db_folder)
+        else:
+            self.load_db_files(self.labeled_db_folder)
+
+    def load_db_files(self, db_folder = "DB"):
         
-    def load_db_files(self):
-        db_folder = "DB"
         self.file_tree_widget.clear()
         self.populate_tree(db_folder, self.file_tree_widget.invisibleRootItem())
         
@@ -672,32 +689,34 @@ class MainWindow(QMainWindow):
         if item.childCount() == 0:  # 如果選擇的是檔案
             self.clear_data()
             file_path = self.get_file_path(item)
-            self.current_relative_path = os.path.relpath(file_path, "DB")
-            labeled_file_path = os.path.join("point_labelled_DB", self.current_relative_path)
-            if os.path.exists(labeled_file_path):
-                with open(labeled_file_path, 'r') as file:
-                    labeled_data = json.load(file)
-                self.load_labeled_data(labeled_data)
-            else:
-                with open(file_path, 'r') as file:
-                    data = json.load(file)
+            
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+            
+            if self.db_combo_box.currentIndex() == 0:  # DB
+                self.current_relative_path = os.path.relpath(file_path, "DB")
+                self.anomaly_list = []
                 self.process_data(data)
+            else:  # labeled_DB
+                self.current_relative_path = os.path.relpath(file_path, "labeled_DB")
+                self.load_labeled_data(data)
 
             self.selected_points.clear()  # 清空Selected Point
             self.update_selected_points_label()  # 更新Selected Point的顯示
             self.update_points_edit()
             self.plot_data()
+
     def load_labeled_data(self, data):
-        self.raw_data = data['raw_data']
-        self.smoothed_data = data['smoothed_data']
-        self.x_points = data['x_points']
-        self.y_points = data['y_points']
-        self.z_points = data['z_points']
-        self.a_points = data['a_points']
-        self.b_points = data['b_points']
-        self.c_points = data['c_points']      
-        self.sample_rate = data['sample_rate']  
-        self.anomaly_list = data['anomaly_list']
+        self.raw_data = data['raw_data'] if 'raw_data' in data else []
+        self.smoothed_data = data['smoothed_data'] if 'smoothed_data' in data else []
+        self.x_points = data['x_points'] if 'x_points' in data else []
+        self.y_points = data['y_points'] if 'y_points' in data else []
+        self.z_points = data['z_points'] if 'z_points' in data else []
+        self.a_points = data['a_points'] if 'a_points' in data else []
+        self.b_points = data['b_points'] if 'b_points' in data else []
+        self.c_points = data['c_points'] if 'c_points' in data else []
+        self.sample_rate = data['sample_rate']  if 'sample_rate' in data else 100
+        self.anomaly_list = data['anomaly_list'] if 'anomaly_list' in data else []
 
     def clear_anomaly_labels(self):
         self.anomaly_text_edit.clear()
@@ -730,8 +749,11 @@ class MainWindow(QMainWindow):
             item = item.parent()
             path.append(item.text(0))
         path.reverse()
-        return os.path.join("DB", *path)
-
+        if self.db_combo_box.currentIndex() == 0:  # DB
+            return os.path.join(self.db_folder, *path)
+        else:  # labeled_DB
+            return os.path.join(self.labeled_db_folder, *path)
+        
     def find_peaks_and_valleys(self, data, sample_rate):#, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
         # peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
         #     data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold

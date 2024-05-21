@@ -262,7 +262,7 @@ def resample_peaks(signal, peak_indices, original_sample_rate, window_size=0.1):
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
-    data_folder = 'point_labelled_DB'
+    data_folder = 'labeled_DB'
     json_files = get_json_files(data_folder)
 
     if not json_files:

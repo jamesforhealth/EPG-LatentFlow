@@ -142,7 +142,7 @@ def load_data(data_folder):
     return signal_values_array, signal_classes_array, sbp_values_array, dbp_values_array, file_names
 
 # 設定參數
-data_folder = "point_labelled_DB"
+data_folder = "labeled_DB"
 sample_rate = 100  # 假設採樣率為100 Hz
 time_range = 0.1  # 考慮前後0.1秒的資訊
 num_classes = 7  # 類別數量(normal,x,y,z,a,b,c)

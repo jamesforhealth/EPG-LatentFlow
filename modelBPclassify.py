@@ -106,7 +106,7 @@ def evaluate(model, dataloader, criterion, device):
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
-    data_folder = 'point_labelled_DB'
+    data_folder = 'labeled_DB'
     batch_size = 32
     num_epochs = 250
     learning_rate = 0.001

@@ -16,8 +16,17 @@ def update_sample_rate(labeled_file_path, original_file_path):
 
     print(f"Updated sample_rate in {labeled_file_path} to {sample_rate}")
 
+def updata_anomaly_labels(labeled_file_path, wearing_type = 'normal'):
+    with open(labeled_file_path, 'r') as f:
+        labeled_data = json.load(f)
+    if wearing_type == 'normal':
+        labeled_data['anomaly_list'] = []
+    else:
+        labeled_data['anomaly_list'] = wearing_type 
+    with open(labeled_file_path, 'w') as f:
+        json.dump(labeled_data, f, indent=4)
 def scan_and_update():
-    labeled_dir = 'point_labelled_DB'
+    labeled_dir = 'labeled_DB'
     original_dir = 'DB'
 
     for root, dirs, files in os.walk(labeled_dir):
@@ -27,7 +36,8 @@ def scan_and_update():
                 original_file_path = os.path.join(original_dir, os.path.relpath(labeled_file_path, labeled_dir))
 
                 if os.path.exists(original_file_path):
-                    update_sample_rate(labeled_file_path, original_file_path)
+                    # update_sample_rate(labeled_file_path, original_file_path)
+                    updata_anomaly_labels(labeled_file_path)
                 else:
                     print(f"Corresponding original file not found for {labeled_file_path}")
 
