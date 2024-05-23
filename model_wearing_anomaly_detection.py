@@ -13,7 +13,7 @@ import json
 import random
 import scipy
 from torchviz import make_dot
-
+from preprocessing import process_DB_rawdata
 class Application(tk.Frame):
     def __init__(self, model, device, train_files, test_files , master=None):
         super().__init__(master)
@@ -43,12 +43,13 @@ class Application(tk.Frame):
                 
                 file_name = os.path.basename(file_path)
                 print(f'load file_name:{file_name}')
-                if file_name in self.train_files:
-                    self.plot_losses(losses, 'Train', file_name)
-                elif file_name in self.test_files:
-                    self.plot_losses(losses, 'Test', file_name)
-                else:
-                    self.plot_losses(losses, 'Real world', file_name)
+                # if file_name in self.train_files:
+                #     self.plot_losses(losses, 'Train', file_name)
+                # elif file_name in self.test_files:
+                #     self.plot_losses(losses, 'Test', file_name)
+                # else:
+                #     self.plot_losses(losses, 'Real world', file_name)
+                self.plot_losses(losses, 'Real world', file_name)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
 
@@ -101,6 +102,8 @@ class WearingDataset(Dataset):
         for json_file in json_files:
             with open(json_file, 'r') as f:
                 json_data = json.load(f)
+                if json_data['anomaly_list'] != []: 
+                    continue
                 signal = json_data['smoothed_data']
                 original_sample_rate = json_data.get('sample_rate', 100)
 
@@ -141,11 +144,11 @@ def load_data(data_folder, window_size, sample_rate):
 
     train_dataset = WearingDataset(train_files, window_size, sample_rate)
     test_dataset = WearingDataset(test_files, window_size, sample_rate, 0.0)
-
+    print(f'Train dataset shape: {train_dataset.data[0].shape}')
     return train_dataset, test_dataset, [os.path.basename(f) for f in train_files], [os.path.basename(f) for f in test_files]
 
 
-def train_autoencoder(model, dataloader, optimizer, criterion, device, epochs=100):
+def train_autoencoder(model, dataloader, optimizer, criterion, device, epochs=300):
     model.train()
     for epoch in range(epochs):
         total_loss = 0
@@ -170,14 +173,17 @@ def test_autoencoder(model, dataloader, criterion, device):
             total_loss += loss.item()
         print('Average Test Loss:', total_loss / len(dataloader))
 
+
+
 def predict_per_second(model, json_file, sample_rate, device):
     with open(json_file, 'r') as f:
         json_data = json.load(f)
-        signal = np.array(json_data['smoothed_data'], dtype=np.float32)
+        signal = process_DB_rawdata(json_data) if 'smoothed_data' not in json_data else np.array(json_data['smoothed_data'], dtype=np.float32)
         if json_data.get('sample_rate', 100) != sample_rate:
             num_samples = int(len(signal) * sample_rate / json_data.get('sample_rate', 100))
             signal = scipy.signal.resample(signal, num_samples)
     
+    # input(f'signal shape: {signal.shape}')
     model.eval()
     criterion = nn.MSELoss()
     losses = []
@@ -194,55 +200,65 @@ def predict_per_second(model, json_file, sample_rate, device):
 def main():
     root = tk.Tk()
     root.title("Anomaly Detection Viewer")
-    data_folder = 'labeled_DB'
+    data_folder = 'DB' #'labeled_DB'
+    training_folder = 'labeled_DB'
     window_size = 100  # Assuming each second contains 100 sampling points
     sample_rate = 100
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'torch device: {device}')
-    json_files = get_json_files(data_folder)
-    # Load data and create data loaders
-    train_dataset, test_dataset, train_files, test_files = load_data(data_folder, window_size, sample_rate)
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
 
     # Initialize and train the U-Net autoencoder
     model = UNetAutoencoder(1, window_size).to(device)
 
-    print(f'train_files: {train_files}')
-    print(f'test_files: {test_files}')
-
-    if os.path.exists('unet_autoencoder2.pt'):
-        model.load_state_dict(torch.load('unet_autoencoder2.pt'))
+    if os.path.exists('unet_autoencoder.pt'):
+        model.load_state_dict(torch.load('unet_autoencoder.pt'))
     # else:
-    # criterion = nn.MSELoss()
-    # optimizer = optim.Adam(model.parameters(), lr=0.001)
-    # train_autoencoder(model, train_loader, optimizer, criterion, device)
-    # # test_autoencoder(model, test_loader, criterion, device)
+    json_files = get_json_files(training_folder)
+    # Load data and create data loaders
+    train_dataset, test_dataset, train_files, test_files = load_data(training_folder, window_size, sample_rate)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    train_autoencoder(model, train_loader, optimizer, criterion, device)
+    # test_autoencoder(model, test_loader, criterion, device)
 
 
-    # # #save model
-    # torch.save(model.state_dict(), 'unet_autoencoder2.pt')
+    # #save model
+    torch.save(model.state_dict(), 'unet_autoencoder.pt')
 
     results = {}
-    for subject_folder in os.listdir('DB'):
+    for subject_folder in os.listdir(data_folder):
         subject_path = os.path.join(data_folder, subject_folder)
         if os.path.isdir(subject_path):
             results[subject_folder] = {}
             for json_file in os.listdir(subject_path):
                 if json_file.endswith('.json'):
                     json_path = os.path.join(subject_path, json_file)
-                    losses = predict_per_second(model, json_path, sample_rate, device)
-                    mean_loss = np.mean(losses)
-                    std_loss = np.std(losses)
-                    results[subject_folder][json_file] = f"{mean_loss:.7f}+-{std_loss:.7f}"
-                    print(f"{subject_folder}/{json_file}: {mean_loss:.7f}+-{std_loss:.7f}")
+                    
+                    # 檢查訓練資料夾中是否存在相同相對路徑的檔案
+                    training_json_path = os.path.join(training_folder, subject_folder, json_file)
+                    if os.path.exists(training_json_path):
+                        print(f"Skipping prediction for {subject_folder}/{json_file} (already trained)")
+                        continue
+                    
+                    try:
+                        losses = predict_per_second(model, json_path, sample_rate, device)
+                        mean_loss = np.mean(losses)
+                        std_loss = np.std(losses)
+                        results[subject_folder][json_file] = f"{mean_loss:.7f}+-{std_loss:.7f}"
+                        print(f"{subject_folder}/{json_file}: {mean_loss:.7f}+-{std_loss:.7f}")
+                    except Exception as e:
+                        print(f"Exception {subject_folder}/{json_file}: {e}")
 
     # Save results to a JSON file
     with open('prediction_results.json', 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=4)
 
-    print("Prediction results saved to 'prediction_results.json'.")
-
+    # print("Prediction results saved to 'prediction_results.json'.")
+    # train_files = []
+    # test_files = []
     # app = Application(model, device, train_files, test_files,  master=root)
     # app.mainloop()
 
