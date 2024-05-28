@@ -7,8 +7,10 @@ from torch.utils.data import Dataset, DataLoader
 from torch import nn, optim
 import scipy
 import sys
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from preprocessing import process_DB_rawdata
+import coremltools as ct
+
 class PeakDetectionDataset(Dataset):
     def __init__(self, json_files, window_size, sample_rate=100):
         self.data = []
@@ -225,7 +227,7 @@ def predict_peaks_core(model, device, signal):
         peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
     
     peak_ranges = sorted(peaks_indices)
-    print(f'Detected: {peak_ranges}')
+    # print(f'Detected: {peak_ranges}')
     if len(peak_ranges) == 0:
         return []
     real_peaks = []
@@ -294,7 +296,13 @@ def main():
     print(f'Total number of model parameters: {trainable_params}')
     #如果模型存在
     if os.path.exists('peak_detection_model3.pt'):
-        model.load_state_dict(torch.load('peak_detection_model3.pt'))
+        model.load_state_dict(torch.load('peak_detection_model3.pt', map_location=device))
+
+    model.eval()
+    example_input = torch.rand(1, 1, input_size)
+    traced_model = torch.jit.trace(model, example_input)
+    coreml_model = ct.convert(traced_model, inputs=[ct.TensorType(shape=example_input.shape)])
+    coreml_model.save('PeakDetectionDCNN.mlmodel')
 
     # criterion = nn.BCELoss()
     # optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -338,9 +346,10 @@ def main():
     #         plt.close(fig)
     #     except Exception as e:
     #         print(f'Error in predicting peaks: {e}')
-    json_file = sys.argv[1]
-    predicted_peaks = predict_peaks_json(model, device, json_file)
-    print(predicted_peaks)
+
+    # json_file = sys.argv[1]
+    # predicted_peaks = predict_peaks_json(model, device, json_file)
+    # print(predicted_peaks)
 
 def detect_peaks_from_json(json_file, model_path='peak_detection_model3.pt'):
     try:
