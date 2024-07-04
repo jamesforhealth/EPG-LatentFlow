@@ -9,7 +9,7 @@ import scipy
 import sys
 # import matplotlib.pyplot as plt
 from preprocessing import process_DB_rawdata
-import coremltools as ct
+# import coremltools as ct
 
 class PeakDetectionDataset(Dataset):
     def __init__(self, json_files, window_size, sample_rate=100):
@@ -193,11 +193,12 @@ def predict_peaks_json(model, device, json_file):
     return predict_peaks(model, device, signal, sample_rate)
 
 def predict_peaks(model, device, signal, sample_rate):
-    signal = np.asarray(signal, dtype=np.float32)  # 將 signal 轉換為 NumPy 數組並指定數據類型
+    signal = np.asarray(signal, dtype=np.float32)
     num_samples = len(signal)
     downsampled_signal = scipy.signal.resample(signal, int(num_samples * 100 / sample_rate))
     real_peaks = predict_peaks_core(model, device, downsampled_signal)
     resampled_peaks = resample_peaks(signal, real_peaks, sample_rate)
+    resampled_peaks = sorted(list(set(resampled_peaks)))
     return resampled_peaks
 
 def predict_peaks_core(model, device, signal):
@@ -226,7 +227,7 @@ def predict_peaks_core(model, device, signal):
         peak_positions = predict_window(model, device, segment, start)
         peaks_indices = list(set(peaks_indices).union(set(peak_positions)))
     
-    peak_ranges = sorted(peaks_indices)
+    peak_ranges = sorted(list(set(peaks_indices)))
     # print(f'Detected: {peak_ranges}')
     if len(peak_ranges) == 0:
         return []
@@ -263,6 +264,54 @@ def resample_peaks(signal, peak_indices, original_sample_rate, window_size=0.1):
         true_peaks.append(true_peak_index)
 
     return true_peaks
+
+
+def detect_peaks_in_window(signal, sample_rate, window_size=200, model_path='peak_detection_model3.pt'):
+    try:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model = PeakDetectionDCNN(window_size, num_classes=1).to(device)
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        
+        all_window_peaks = []
+        num_samples = len(signal)
+
+        # 遍历整个信号，每次移动一个 sample_rate（即1秒）
+        for start in range(0, num_samples - window_size + 1, sample_rate):
+            end = start + window_size
+            segment = signal[start:end]
+            segment_peaks = predict_window(model, device, segment, start)
+            if len(segment_peaks) > 1:  # 如果该段包含完整的脉冲波（即多于一个 peak）
+                all_window_peaks.extend(segment_peaks)
+
+        # 后处理以找到真正的 peak
+        peak_ranges = sorted(all_window_peaks)
+        if len(peak_ranges) == 0:
+            return []
+        
+        real_peaks = []
+        last_i = peak_ranges[0]
+        argmax_signal = last_i
+        
+        for i in peak_ranges[1:]:
+            if i != last_i + 1:
+                real_peaks.append(argmax_signal)
+                argmax_signal = i            
+            else:
+                if signal[i] > signal[argmax_signal]:
+                    argmax_signal = i
+            last_i = i
+        
+        if argmax_signal not in real_peaks:
+            real_peaks.append(argmax_signal)
+        
+        return real_peaks
+    except TypeError as e:
+        print(f'Type error in detect_peaks_in_window: {e}')
+        return []
+    except Exception as e:
+        print(f'Error in detect_peaks_in_window: {e}')
+        return []
+
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
@@ -298,11 +347,11 @@ def main():
     if os.path.exists('peak_detection_model3.pt'):
         model.load_state_dict(torch.load('peak_detection_model3.pt', map_location=device))
 
-    model.eval()
-    example_input = torch.rand(1, 1, input_size)
-    traced_model = torch.jit.trace(model, example_input)
-    coreml_model = ct.convert(traced_model, inputs=[ct.TensorType(shape=example_input.shape)])
-    coreml_model.save('PeakDetectionDCNN.mlmodel')
+    # model.eval()
+    # example_input = torch.rand(1, 1, input_size)
+    # traced_model = torch.jit.trace(model, example_input)
+    # coreml_model = ct.convert(traced_model, inputs=[ct.TensorType(shape=example_input.shape)])
+    # coreml_model.save('PeakDetectionDCNN.mlmodel')
 
     # criterion = nn.BCELoss()
     # optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -347,9 +396,9 @@ def main():
     #     except Exception as e:
     #         print(f'Error in predicting peaks: {e}')
 
-    # json_file = sys.argv[1]
-    # predicted_peaks = predict_peaks_json(model, device, json_file)
-    # print(predicted_peaks)
+    json_file = sys.argv[1]
+    predicted_peaks = predict_peaks_json(model, device, json_file)
+    print(predicted_peaks)
 
 def detect_peaks_from_json(json_file, model_path='peak_detection_model3.pt'):
     try:
@@ -368,6 +417,9 @@ def detect_peaks_from_json(json_file, model_path='peak_detection_model3.pt'):
         print(f'Error in detect_peaks_from_json: {e}')
         return []
 def detect_peaks_from_signal(signal, sample_rate, model_path='peak_detection_model3.pt'):
+    if len(signal) == 0:
+        print("Warning: Skipping signal due to invalid length")
+        return []
     try:
         # print(f'signal : {signal}')
         # print(f"Input signal type: {type(signal)}")
@@ -380,6 +432,7 @@ def detect_peaks_from_signal(signal, sample_rate, model_path='peak_detection_mod
         model.load_state_dict(torch.load(model_path))
 
         predicted_peaks = predict_peaks(model, device, signal, sample_rate)
+        # predicted_peaks = list(set(predicted_peaks)).sort()
         return predicted_peaks
     except TypeError as e:
         print(f'Type error in detect_peaks_from_signal: {e}')
