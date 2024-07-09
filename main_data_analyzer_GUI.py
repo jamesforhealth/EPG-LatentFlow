@@ -248,6 +248,7 @@ class MainWindow(QMainWindow):
 
         self.raw_data = []
         self.smoothed_data = []
+        self.standardized_data = []
         self.smoothed_data_100hz = []
         self.reconstructed_data = []
         self.noisy_data = []
@@ -390,6 +391,19 @@ class MainWindow(QMainWindow):
         self.pulse_slider.valueChanged.connect(self.update_latent_vector_display)
 
         # 修改布局
+        # 在现有的 UI 元素之后添加
+        self.amplitude_slider = QSlider(Qt.Horizontal)
+        self.amplitude_slider.setMinimum(20)
+        self.amplitude_slider.setMaximum(500)
+        self.amplitude_slider.setValue(100)
+        self.amplitude_slider.valueChanged.connect(self.update_amplitude)
+
+        self.amplitude_label = QLabel("Amplitude: 1.00x")
+
+        points_layout.addWidget(QLabel("Amplitude:"))
+        points_layout.addWidget(self.amplitude_slider)
+        points_layout.addWidget(self.amplitude_label)
+
         points_layout.addWidget(QLabel("Selected Pulse:"))
         points_layout.addWidget(self.pulse_slider)
         points_layout.addWidget(self.pulse_index_label)
@@ -477,6 +491,36 @@ class MainWindow(QMainWindow):
 
         self.floating_marker = pg.ScatterPlotItem(size=10, pen=pg.mkPen(color=(255, 0, 0), width=2), brush=pg.mkBrush(255, 255, 255, 120))
         self.plot_widget.addItem(self.floating_marker)
+
+    def update_amplitude(self):
+        amplitude_factor = self.amplitude_slider.value() / 100
+        self.amplitude_label.setText(f"Amplitude: {amplitude_factor:.2f}x")
+        self.update_latent_vector_display()
+
+    def get_current_pulse(self):
+        index = self.pulse_slider.value()
+        if index < len(self.x_points) - 1:
+            start = self.x_points[index]
+            end = self.x_points[index + 1]
+            return self.standardized_data[start:end]
+        return None
+    
+    def calculate_latent_vector(self, pulse):
+        if len(pulse) > 1:
+            
+            # 标准化
+            # pulse_normalized = (pulse - np.mean(pulse)) / np.std(pulse)
+            
+            target_len = 100
+            interp_func = scipy.interpolate.interp1d(np.arange(len(pulse)), pulse, kind='linear')
+            pulse_resampled = interp_func(np.linspace(0, len(pulse) - 1, target_len))
+            pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                _, latent_vector = self.baseline_model3(pulse_tensor)
+            
+            return latent_vector.squeeze().cpu().numpy()
+        return None
 
     def init_fft_tab(self):
         self.fft_plot_widget = pg.PlotWidget()
@@ -830,6 +874,8 @@ class MainWindow(QMainWindow):
     def load_labeled_data(self, data):
         self.raw_data = data['raw_data'] if 'raw_data' in data else []
         self.smoothed_data = data['smoothed_data'] if 'smoothed_data' in data else []
+        #標準化
+        self.standardized_data = (self.smoothed_data - np.mean(self.smoothed_data)) / np.std(self.smoothed_data)
         self.sample_rate = data['sample_rate']  if 'sample_rate' in data else 100
         self.smoothed_data_100hz = resample(self.smoothed_data, int(len(self.smoothed_data) * 100 // self.sample_rate))
         self.x_points = data['x_points'] if 'x_points' in data else []
@@ -848,6 +894,7 @@ class MainWindow(QMainWindow):
     def clear_data(self):
         self.raw_data = []
         self.smoothed_data = []
+        self.standardized_data = []
         self.smoothed_data_100hz = []
         self.x_points = []
         self.y_points = []
@@ -862,6 +909,7 @@ class MainWindow(QMainWindow):
         print(f'Sample_rate: {self.sample_rate}')
         scale = int(3 * self.sample_rate / 100)
         self.smoothed_data = gaussian_smooth(self.raw_data, scale, scale/4)
+        self.standardized_data = (self.smoothed_data - np.mean(self.smoothed_data)) / np.std(self.smoothed_data)
         if len(self.smoothed_data) > 0 : 
             self.smoothed_data_100hz = resample(self.smoothed_data, int(len(self.smoothed_data) * 100 // self.sample_rate))
             self.window_start_slider.setMaximum(len(self.smoothed_data_100hz) - self.window_size)
@@ -904,24 +952,32 @@ class MainWindow(QMainWindow):
     def update_latent_vector_display(self):
         if self.latent_vectors:
             index = self.pulse_slider.value()
-            latent_vector = self.latent_vectors[index]
-            
-            # 更新 Pulse 索引标签
-            self.pulse_index_label.setText(f"Pulse: {index}")
-            
-            # 计算时间
-            start_time = self.x_points[index] / self.sample_rate
-            end_time = self.x_points[index + 1] / self.sample_rate if index + 1 < len(self.x_points) else len(self.smoothed_data) / self.sample_rate
-            time_diff = end_time - start_time
-            # 格式化 latent vector 显示
-            vector_str = " ".join(f"{v:.4f}" for v in latent_vector)
-            display_text = f"Time length = {time_diff:.2f} ({start_time:.2f}s - {end_time:.2f}s)\n{vector_str}"
-            
-            self.latent_vector_display.setText(display_text)
+            pulse = self.get_current_pulse()
+            if pulse is not None:
+                amplitude_factor = self.amplitude_slider.value() / 100
+                adjusted_pulse = pulse * amplitude_factor
+                latent_vector = self.calculate_latent_vector(adjusted_pulse)
+                
+                # 更新 Pulse 索引标签
+                self.pulse_index_label.setText(f"Pulse: {index}")
+                
+                # 计算时间
+                start_time = self.x_points[index] / self.sample_rate
+                end_time = self.x_points[index + 1] / self.sample_rate if index + 1 < len(self.x_points) else len(self.smoothed_data) / self.sample_rate
+                time_diff = end_time - start_time
+                
+                # 格式化 latent vector 显示
+                vector_str = " ".join(f"{v:.4f}" for v in latent_vector)
+                display_text = f"Time length = {time_diff:.2f} ({start_time:.2f}s - {end_time:.2f}s)\n{vector_str}"
+                
+                self.latent_vector_display.setText(display_text)
+            else:
+                self.pulse_index_label.setText("Pulse: N/A")
+                self.latent_vector_display.setText("No pulse available.")
         else:
             self.pulse_index_label.setText("Pulse: N/A")
             self.latent_vector_display.setText("No latent vectors available.")
-                                               
+                                                
 
     def get_file_path(self, item):
         path = [item.text(0)]

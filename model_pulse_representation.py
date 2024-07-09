@@ -762,19 +762,20 @@ def main():
     test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
     # 初始化模型和優化器
-    # model = EPGBaselinePulseAutoencoder(target_len=200).to(device)
-    # # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
-    # criterion = nn.MSELoss()
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    # trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # print(f'Total number of model parameters: {trainable_params}, model:{model}') 
-    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
+    model = EPGBaselinePulseAutoencoder(target_len=200).to(device)
+    # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Total number of model parameters: {trainable_params}, model:{model}') 
+    train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
 
     # model_path = 'pulse_interpolate_autoencoder.pth'
     # model.load_state_dict(torch.load(model_path))
-    model_path = 'pulse_interpolate_autoencoder.pth'
-    model = EPGBaselinePulseAutoencoder(100).to(device)
-    model.load_state_dict(torch.load(model_path))
+    # model_path = 'pulse_interpolate_autoencoder.pth'
+    # model = EPGBaselinePulseAutoencoder(100).to(device)
+    # model.load_state_dict(torch.load(model_path))
+    
     model.eval()
     encoded_data = {} 
     for json_file in json_files:
@@ -793,7 +794,7 @@ def main():
                 encoded_data[relative_path] = np.array(latent_vector_list)
         except Exception as e:
             print(f'Error in loading {json_file}: {e}')   
-    # save_encoded_data(encoded_data, 'latent_vectors')
+    save_encoded_data(encoded_data, 'latent_vectors')
 
     # 統計每個維度的分佈範圍
     all_latent_vectors = []
