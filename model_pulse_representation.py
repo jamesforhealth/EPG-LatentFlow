@@ -661,9 +661,10 @@ def predict_latent_vector_list(model, signal, sample_rate, peaks):
     return latent_vector_list
 
 def predict_reconstructed_signal(signal, sample_rate, peaks):
-    target_len = 200
+    target_len = 100
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_path = 'pulse_interpolate_autoencoder2.pth'
+    model_path = 'pulse_interpolate_autoencoder2.pth' # target_len = 200
+    model_path = 'pulse_interpolate_autoencoder.pth' # target_len = 100
     model = EPGBaselinePulseAutoencoder(target_len).to(device)
     model.load_state_dict(torch.load(model_path))
     model.eval()
