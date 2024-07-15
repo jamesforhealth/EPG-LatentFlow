@@ -90,8 +90,10 @@ def evaluate_model(model, dataloader, criterion, device):
     with torch.no_grad():
         for batch in dataloader:
             pulse = batch.to(device)
-            output, _ = model(pulse)
-            loss = criterion(output, pulse)
+            # output, _ = model(pulse)
+            # loss = criterion(output, pulse)
+            recon_batch, mu, logvar = model(pulse)
+            loss = loss_function(recon_batch, pulse, mu, logvar)
             total_loss += loss.item()
     total_loss /= len(dataloader)
     return total_loss
@@ -100,6 +102,7 @@ def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, crite
     model.train()
     min_loss = float('inf')
     model_path = 'pulse_interpolate_autoencoder2.pth'
+    model_path = 'pulse_interpolate_autoencoder_VAE.pth' #Epoch [1/2000], Training Loss: 12.8088734311, Testing Loss: 4.2140154323
     
     # 嘗試載入已有的模型參數
     if os.path.exists(model_path):
@@ -111,14 +114,17 @@ def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, crite
         for batch in train_dataloader:
             pulse = batch.to(device)
             optimizer.zero_grad()
-            for i in range(30):
-                noise_pulse = add_gaussian_noise_torch(pulse)
-                output, _ = model(noise_pulse)
-            # output, _ = model(pulse)
-                loss = criterion(output, pulse)
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item()
+            # for i in range(30):
+            #     noise_pulse = add_gaussian_noise_torch(pulse)
+            #     output, _ = model(noise_pulse)
+            # # output, _ = model(pulse)
+            #     loss = criterion(output, pulse)
+            recon_batch, mu, logvar = model(pulse)
+            loss = loss_function(recon_batch, pulse, mu, logvar)
+
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
         total_loss /= len(train_dataloader)
         
         test_loss = evaluate_model(model, test_dataloader, criterion, device)
@@ -509,28 +515,28 @@ def loss_function(recon_x, x, mu, logvar):
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return BCE + KLD
 
-def trainVAE(model, dataloader, optimizer, device, epochs=10000):
-    model_path = 'pulse_vae.pt'
-    min_loss = float('inf')
-    model.to(device)
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0
-        for batch in dataloader:
-            pulses = batch.to(device)
-            optimizer.zero_grad()
-            output, mu, logvar = model(pulses)
-            loss = loss_function(output, pulses, mu, logvar)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-        total_loss /= len(dataloader)
-        print(f'Epoch {epoch + 1}/{epochs}, Loss: {total_loss}')
+# def trainVAE(model, dataloader, optimizer, device, epochs=10000):
+#     model_path = 'pulse_vae.pt'
+#     min_loss = float('inf')
+#     model.to(device)
+#     for epoch in range(epochs):
+#         model.train()
+#         total_loss = 0
+#         for batch in dataloader:
+#             pulses = batch.to(device)
+#             optimizer.zero_grad()
+#             output, mu, logvar = model(pulses)
+#             loss = loss_function(output, pulses, mu, logvar)
+#             loss.backward()
+#             optimizer.step()
+#             total_loss += loss.item()
+#         total_loss /= len(dataloader)
+#         print(f'Epoch {epoch + 1}/{epochs}, Loss: {total_loss}')
 
-        if total_loss < min_loss * 0.95:
-            min_loss = total_loss
-            torch.save(model.state_dict(), model_path)
-            print(f'Saved model to {model_path}, epoch loss: {total_loss}')
+#         if total_loss < min_loss * 0.95:
+#             min_loss = total_loss
+#             torch.save(model.state_dict(), model_path)
+#             print(f'Saved model to {model_path}, epoch loss: {total_loss}')
 
 class EPGBaselinePulseAutoencoder(nn.Module):
     def __init__(self, target_len, hidden_dim=50, latent_dim=30):
@@ -552,9 +558,46 @@ class EPGBaselinePulseAutoencoder(nn.Module):
         z = self.enc(x)
         pred = self.dec(z)
         return pred, z
+    
+
+class EPGBaselinePulseVAE(nn.Module):
+    def __init__(self, target_len, hidden_dim=50, latent_dim=30):
+        super(EPGBaselinePulseVAE, self).__init__()
+        # Encoder
+        self.fc1 = nn.Linear(target_len, hidden_dim)
+        self.fc21 = nn.Linear(hidden_dim, latent_dim)  # 均值
+        self.fc22 = nn.Linear(hidden_dim, latent_dim)  # 標準差
+        
+        # Decoder
+        self.fc3 = nn.Linear(latent_dim, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, target_len)
+        
+    def encode(self, x):
+        h1 = torch.relu(self.fc1(x))
+        return self.fc21(h1), self.fc22(h1)
+    
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+    
+    def decode(self, z):
+        h3 = torch.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h3))  # 使用sigmoid確保輸出在[0, 1]範圍內
+    
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
+
+# def loss_function(recon_x, x, mu, logvar):
+#     BCE = nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
+#     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+#     return BCE + KLD
+
 
 def predict_latent_vector_list(model, signal, sample_rate, peaks):
-    target_len = 100
+    target_len = 200#100
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 重採樣信號
@@ -595,23 +638,32 @@ def predict_latent_vector_list(model, signal, sample_rate, peaks):
     #計算前後latent_vector之間的相似程度
     similarity_list = []
     distance_list = []
+    diff_vectors = []
     for i in range(len(latent_vector_list) - 1):
         this_vec = latent_vector_list[i]
         next_vec = latent_vector_list[i + 1]
 
-        similarity = np.dot(this_vec, next_vec)/(np.linalg.norm(this_vec) * np.linalg.norm(next_vec))
-        similarity_list.append(similarity) 
+        similarity = np.dot(this_vec, next_vec) / (np.linalg.norm(this_vec) * np.linalg.norm(next_vec))
         distance = np.linalg.norm(this_vec - next_vec)
-        distance_list.append(distance)
-    # print(f'similarity_list:{similarity_list}')
-    # print(f'distance_list:{distance_list}')
+        diff_vector = next_vec - this_vec
 
+        similarity_list.append(similarity)
+        distance_list.append(distance)
+        diff_vectors.append(diff_vector)
+
+    # for i, (sim, dist, diff) in enumerate(zip(similarity_list, distance_list, diff_vectors)):
+    #     print(f'Pulse {i} to Pulse {i+1} Diff Vector:{diff}, Norm: {np.linalg.norm(diff):.4f}')
+    norms = [np.linalg.norm(l) for l in diff_vectors]
+    print(f'norm of diff vectors: {norms}')
+    #print norm of latent vectors
+    norms = [np.linalg.norm(l) for l in latent_vector_list]
+    print(f'norm of latent_vector_list: {norms}')
     return latent_vector_list
 
 def predict_reconstructed_signal(signal, sample_rate, peaks):
-    target_len = 100
+    target_len = 200
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_path = 'pulse_interpolate_autoencoder.pth'
+    model_path = 'pulse_interpolate_autoencoder2.pth'
     model = EPGBaselinePulseAutoencoder(target_len).to(device)
     model.load_state_dict(torch.load(model_path))
     model.eval()
@@ -763,15 +815,16 @@ def main():
 
     # 初始化模型和優化器
     model = EPGBaselinePulseAutoencoder(target_len=200).to(device)
+    # model = EPGBaselinePulseVAE(target_len=200).to(device)
     # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f'Total number of model parameters: {trainable_params}, model:{model}') 
-    train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
+    # criterion = nn.MSELoss()
+    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    # trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # print(f'Total number of model parameters: {trainable_params}, model:{model}') 
+    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
 
-    # model_path = 'pulse_interpolate_autoencoder.pth'
-    # model.load_state_dict(torch.load(model_path))
+    model_path = 'pulse_interpolate_autoencoder2.pth'
+    model.load_state_dict(torch.load(model_path))
     # model_path = 'pulse_interpolate_autoencoder.pth'
     # model = EPGBaselinePulseAutoencoder(100).to(device)
     # model.load_state_dict(torch.load(model_path))
@@ -790,11 +843,15 @@ def main():
                 original_sample_rate = json_data.get('sample_rate', 100)
                 x_points = json_data['x_points']
                 latent_vector_list = predict_latent_vector_list(model, signal, original_sample_rate, x_points) 
-                print(f'latent_vector_list: {latent_vector_list}')
+
+                # print(f'latent_vector_list: {latent_vector_list}')
+                # print(f'File: {json_file}')
+                # for i, (sim, dist, diff) in enumerate(zip(similarity_list, distance_list, diff_vectors)):
+                #     print(f'Pulse {i} to Pulse {i+1} - Similarity: {sim:.4f}, Distance: {dist:.4f}, Diff Vector Norm: {np.linalg.norm(diff):.4f}')
                 encoded_data[relative_path] = np.array(latent_vector_list)
         except Exception as e:
             print(f'Error in loading {json_file}: {e}')   
-    save_encoded_data(encoded_data, 'latent_vectors')
+    save_encoded_data(encoded_data, 'latent_vectors_VAE')
 
     # 統計每個維度的分佈範圍
     all_latent_vectors = []
