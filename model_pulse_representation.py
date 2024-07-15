@@ -596,8 +596,7 @@ class EPGBaselinePulseVAE(nn.Module):
 #     return BCE + KLD
 
 
-def predict_latent_vector_list(model, signal, sample_rate, peaks):
-    target_len = 200#100
+def predict_latent_vector_list(model, signal, sample_rate, peaks, target_len = 100):#100):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 重採樣信號
@@ -815,7 +814,7 @@ def main():
     test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
     # 初始化模型和優化器
-    model = EPGBaselinePulseAutoencoder(target_len=200).to(device)
+    model = EPGBaselinePulseAutoencoder(target_len=100).to(device)
     # model = EPGBaselinePulseVAE(target_len=200).to(device)
     # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
     # criterion = nn.MSELoss()
@@ -824,7 +823,7 @@ def main():
     # print(f'Total number of model parameters: {trainable_params}, model:{model}') 
     # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
 
-    model_path = 'pulse_interpolate_autoencoder2.pth'
+    model_path = 'pulse_interpolate_autoencoder.pth'
     model.load_state_dict(torch.load(model_path))
     # model_path = 'pulse_interpolate_autoencoder.pth'
     # model = EPGBaselinePulseAutoencoder(100).to(device)
@@ -843,7 +842,7 @@ def main():
                 signal = json_data['smoothed_data']
                 original_sample_rate = json_data.get('sample_rate', 100)
                 x_points = json_data['x_points']
-                latent_vector_list = predict_latent_vector_list(model, signal, original_sample_rate, x_points) 
+                latent_vector_list = predict_latent_vector_list(model, signal, original_sample_rate, x_points, target_len=100) 
 
                 # print(f'latent_vector_list: {latent_vector_list}')
                 # print(f'File: {json_file}')
@@ -852,7 +851,7 @@ def main():
                 encoded_data[relative_path] = np.array(latent_vector_list)
         except Exception as e:
             print(f'Error in loading {json_file}: {e}')   
-    save_encoded_data(encoded_data, 'latent_vectors_VAE')
+    save_encoded_data(encoded_data, 'latent_vectors_1')
 
     # 統計每個維度的分佈範圍
     all_latent_vectors = []
