@@ -31,6 +31,93 @@ import math
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
 import h5py
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+def analyze_diff_vectors(encoded_data):
+    all_diff_vectors = []
+    for vectors in encoded_data.values():
+        diff_vectors = np.diff(vectors, axis=0)
+        all_diff_vectors.extend(diff_vectors)
+    
+    all_diff_vectors = np.array(all_diff_vectors)
+    
+    # 执行PCA
+    pca = PCA()
+    pca.fit(all_diff_vectors)
+    
+    # 计算累积解释方差比
+    cumulative_variance_ratio = np.cumsum(pca.explained_variance_ratio_)
+    
+    # 绘制累积解释方差比
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, len(cumulative_variance_ratio) + 1), cumulative_variance_ratio, 'bo-')
+    plt.xlabel('Number of Components')
+    plt.ylabel('Cumulative Explained Variance Ratio')
+    plt.title('PCA Analysis of Diff Vectors')
+    plt.grid(True)
+    plt.show()
+    
+    # 找出解释95%方差所需的维度数
+    n_components_95 = np.argmax(cumulative_variance_ratio >= 0.99) + 1
+    print(f"Number of components needed to explain 95% of the variance: {n_components_95}")
+    
+    # 分析每个主成分的贡献
+    print("\nTop 10 principal components and their explained variance ratio:")
+    for i in range(20):
+        print(f"PC{i+1}: {pca.explained_variance_ratio_[i]:.4f}")
+    
+    return pca, n_components_95, all_diff_vectors
+
+def analyze_principal_components(pca, n_components):
+    print("\nTop 5 principal components:")
+    for i in range(5):
+        print(f"PC{i+1}:")
+        print(pca.components_[i])
+        print("---")
+
+def visualize_projections(all_diff_vectors, pca):
+    projected = pca.transform(all_diff_vectors)
+    plt.figure(figsize=(12, 4))
+    
+    plt.subplot(131)
+    plt.scatter(projected[:, 0], projected[:, 1], alpha=0.1)
+    plt.xlabel('PC1')
+    plt.ylabel('PC2')
+    plt.title('Projection on PC1 and PC2')
+    
+    plt.subplot(132)
+    plt.scatter(projected[:, 0], projected[:, 2], alpha=0.1)
+    plt.xlabel('PC1')
+    plt.ylabel('PC3')
+    plt.title('Projection on PC1 and PC3')
+    
+    plt.subplot(133)
+    plt.scatter(projected[:, 1], projected[:, 2], alpha=0.1)
+    plt.xlabel('PC2')
+    plt.ylabel('PC3')
+    plt.title('Projection on PC2 and PC3')
+    
+    plt.tight_layout()
+    plt.show()
+
+def analyze_reconstruction_error(all_diff_vectors, pca, n_components_range):
+    errors = []
+    for n in n_components_range:
+        pca_n = PCA(n_components=n)
+        projected = pca_n.fit_transform(all_diff_vectors)
+        reconstructed = pca_n.inverse_transform(projected)
+        error = np.mean(np.sum((all_diff_vectors - reconstructed)**2, axis=1))
+        errors.append(error)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(n_components_range, errors, 'bo-')
+    plt.xlabel('Number of Components')
+    plt.ylabel('Mean Squared Reconstruction Error')
+    plt.title('Reconstruction Error vs. Number of Components')
+    plt.grid(True)
+    plt.show()
+
 def save_encoded_data(encoded_data, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -851,23 +938,37 @@ def main():
                 encoded_data[relative_path] = np.array(latent_vector_list)
         except Exception as e:
             print(f'Error in loading {json_file}: {e}')   
-    save_encoded_data(encoded_data, 'latent_vectors_1')
+    # save_encoded_data(encoded_data, 'latent_vectors_1')
+
+    # 分析差异向量
+    pca, n_components_95, all_diff_vectors = analyze_diff_vectors(encoded_data)
+
+    # 分析主成分
+    analyze_principal_components(pca, n_components_95)
+
+    # 可视化投影
+    visualize_projections(all_diff_vectors, pca)
+
+    # 分析重建误差
+    n_components_range = range(1, min(101, len(pca.explained_variance_ratio_) + 1))
+    analyze_reconstruction_error(all_diff_vectors, pca, n_components_range)
+    
 
     # 統計每個維度的分佈範圍
-    all_latent_vectors = []
-    for vectors in encoded_data.values():
-        all_latent_vectors.extend(vectors)
-    all_latent_vectors = np.array(all_latent_vectors)
+    # all_latent_vectors = []
+    # for vectors in encoded_data.values():
+    #     all_latent_vectors.extend(vectors)
+    # all_latent_vectors = np.array(all_latent_vectors)
 
-    min_values = np.min(all_latent_vectors, axis=0)
-    max_values = np.max(all_latent_vectors, axis=0)
-    mean_values = np.mean(all_latent_vectors, axis=0)
-    std_values = np.std(all_latent_vectors, axis=0)
+    # min_values = np.min(all_latent_vectors, axis=0)
+    # max_values = np.max(all_latent_vectors, axis=0)
+    # mean_values = np.mean(all_latent_vectors, axis=0)
+    # std_values = np.std(all_latent_vectors, axis=0)
 
-    print(f"Min values: {min_values}")
-    print(f"Max values: {max_values}")
-    print(f"Mean values: {mean_values}")
-    print(f"Std values: {std_values}")
+    # print(f"Min values: {min_values}")
+    # print(f"Max values: {max_values}")
+    # print(f"Mean values: {mean_values}")
+    # print(f"Std values: {std_values}")
 
     # # 编码所有脉冲
     # encoded_data = encode_pulses(model, json_files, target_len, device=device)
