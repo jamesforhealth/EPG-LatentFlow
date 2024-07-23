@@ -3,4 +3,6 @@ DB/*
 peak_detection_env/*
 *.zip
 *.csv
+*.py
+*.pyc
 latent_vectors*/*

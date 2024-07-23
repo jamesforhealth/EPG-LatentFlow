@@ -752,7 +752,7 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
     model_path = 'pulse_interpolate_autoencoder2.pth' # target_len = 200
     model_path = 'pulse_interpolate_autoencoder.pth' # target_len = 100
     model = EPGBaselinePulseAutoencoder(target_len).to(device)
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path,map_location = device))
     model.eval()
 
     # 重採樣信號

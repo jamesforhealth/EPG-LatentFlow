@@ -227,7 +227,7 @@ class MainWindow(QMainWindow):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.baseline_model3 = EPGBaselinePulseAutoencoder(100).to(self.device)
         model_path = 'pulse_interpolate_autoencoder.pth'
-        self.baseline_model3.load_state_dict(torch.load(model_path))
+        self.baseline_model3.load_state_dict(torch.load(model_path,map_location = self.device))
         self.baseline_model3.eval()
 
         self.setWindowTitle("Waveform Labeling")
@@ -259,6 +259,8 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
+        self.dataType = ""
+        self.macaddress = ""
         self.anomaly_list = []
         self.selected_start_peak_idx = None
         self.selected_end_peak_idx = None
@@ -282,13 +284,18 @@ class MainWindow(QMainWindow):
         self.reload_button = QPushButton("Reload")
         self.reload_button.clicked.connect(self.reload_user_data)
 
+        self.db_folder = "DB"
+        self.labeled_db_folder = "labeled_DB"
+
+        file_count = self.count_files_in_directory(self.db_folder, ".json")
+        labeled_file_count = self.count_files_in_directory(self.labeled_db_folder, ".json")
+        file_count_label = QLabel(f"labeled/db: {labeled_file_count}/{file_count}")
+        
         user_id_layout = QHBoxLayout()
         user_id_layout.addWidget(QLabel("User ID:"))
         user_id_layout.addWidget(self.user_id_edit)
         user_id_layout.addWidget(self.reload_button)
-
-        self.db_folder = "DB"
-        self.labeled_db_folder = "labeled_DB"
+        user_id_layout.addWidget(file_count_label)
 
         self.db_combo_box = QComboBox()
         self.db_combo_box.addItem("DB")
@@ -548,7 +555,15 @@ class MainWindow(QMainWindow):
 
         self.fft_tab = QWidget()
         self.fft_tab.setLayout(fft_layout)
-
+        
+    def count_files_in_directory(self, directory, file_extension):
+        total_count = 0
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                if file.endswith(file_extension):
+                    total_count += 1
+        return total_count
+    
     def on_fft_mouse_move(self, event):
         if len(self.fft_freq) == 0:
             return
@@ -798,6 +813,9 @@ class MainWindow(QMainWindow):
             "c_points": self.c_points,
             "sample_rate": self.sample_rate,
             "anomaly_list": self.anomaly_list,
+            "dataType": self.dataType,
+            "macaddress": self.macaddress
+            
             # 這裡可以添加更多需要保存的數據
         }
         print('Saving labeled data:', data)
@@ -884,6 +902,8 @@ class MainWindow(QMainWindow):
         self.a_points = data['a_points'] if 'a_points' in data else []
         self.b_points = data['b_points'] if 'b_points' in data else []
         self.c_points = data['c_points'] if 'c_points' in data else []
+        self.macaddress = data['macaddress'] if 'macaddress' in data else ""
+        self.dataType = data['dataType'] if 'dataType' in data else "EPG"
         self.anomaly_list = data['anomaly_list'] if 'anomaly_list' in data else []
 
     def clear_anomaly_labels(self):
@@ -902,10 +922,15 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
+        self.dataType = ""
+        self.macaddress = ""
+        
     def process_data(self, data):
         self.raw_data = [-value for packet in data['raw_data'] for value in packet['datas']]
         self.userID = data['user_id']
         self.sample_rate = data['sample_rate']
+        self.dataType = data['dataType']
+        self.macaddress = data['macaddress']
         print(f'Sample_rate: {self.sample_rate}')
         scale = int(3 * self.sample_rate / 100)
         self.smoothed_data = gaussian_smooth(self.raw_data, scale, scale/4)
@@ -1224,7 +1249,7 @@ class MainWindow(QMainWindow):
 
         if self.checkbox_x_points.isChecked():
             x_points_in_range = [i for i in self.x_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(255, 255, 0), symbolSize=7, name='X Points')
+            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(0, 0, 0), symbolSize=7, name='X Points')
 
         if self.checkbox_y_points.isChecked():
             y_points_in_range = [i for i in self.y_points if 0 <= i < len(self.smoothed_data)]

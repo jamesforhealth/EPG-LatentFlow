@@ -1,0 +1,4 @@
+{"scripts": {
+    "start": "python3 main_data_analyzer_GUI.py",
+    "loadDB": "python3 influxDB_downloader.py"
+}}

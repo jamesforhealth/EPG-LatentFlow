@@ -270,7 +270,7 @@ def detect_peaks_in_window(signal, sample_rate, window_size=200, model_path='pea
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = PeakDetectionDCNN(window_size, num_classes=1).to(device)
-        model.load_state_dict(torch.load(model_path, map_location=device))
+        model.load_state_dict(torch.load(model_path,map_location = self.device))
         
         all_window_peaks = []
         num_samples = len(signal)
@@ -345,7 +345,7 @@ def main():
     print(f'Total number of model parameters: {trainable_params}')
     #如果模型存在
     if os.path.exists('peak_detection_model3.pt'):
-        model.load_state_dict(torch.load('peak_detection_model3.pt', map_location=device))
+        model.load_state_dict(torch.load(model_path,map_location = self.device))
 
     # model.eval()
     # example_input = torch.rand(1, 1, input_size)
@@ -406,7 +406,7 @@ def detect_peaks_from_json(json_file, model_path='peak_detection_model3.pt'):
         window_size = 200
         num_classes = 1
         model = PeakDetectionDCNN(window_size, num_classes).to(device)
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=device))
 
         predicted_peaks = predict_peaks_json(model, device, json_file)
         return predicted_peaks
@@ -416,23 +416,19 @@ def detect_peaks_from_json(json_file, model_path='peak_detection_model3.pt'):
     except Exception as e:
         print(f'Error in detect_peaks_from_json: {e}')
         return []
+
 def detect_peaks_from_signal(signal, sample_rate, model_path='peak_detection_model3.pt'):
     if len(signal) == 0:
         print("Warning: Skipping signal due to invalid length")
         return []
     try:
-        # print(f'signal : {signal}')
-        # print(f"Input signal type: {type(signal)}")
-        # print(f"Input signal dtype: {np.array(signal).dtype}")
-        
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         window_size = 200
         num_classes = 1
         model = PeakDetectionDCNN(window_size, num_classes).to(device)
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=device))
 
         predicted_peaks = predict_peaks(model, device, signal, sample_rate)
-        # predicted_peaks = list(set(predicted_peaks)).sort()
         return predicted_peaks
     except TypeError as e:
         print(f'Type error in detect_peaks_from_signal: {e}')
