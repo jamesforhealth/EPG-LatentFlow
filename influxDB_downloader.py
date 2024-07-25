@@ -60,14 +60,14 @@ def main():
 
         all_data = []
         for user in users:
-            user_id = user["idusers"]
+            user_id = 111
             user_dir = os.path.join(base_dir, str(user_id))
             os.makedirs(user_dir, exist_ok=True)  # 為每個用戶建立資料夾
 
             sessions = get_user_sessions(user_id)
             if sessions is not None:
                 for idx, timestamp in enumerate(sessions["timestamp"]):
-                    print(f"sessions: {sessions}")
+                    
                     macaddress = sessions["session_data"]["BLE_MAC_ADDRESS"][idx]
                     session_data = get_session_data(user_id, timestamp, macaddress)
                     if session_data is not None:

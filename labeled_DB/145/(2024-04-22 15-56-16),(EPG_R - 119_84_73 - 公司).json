@@ -6459,5 +6459,6 @@
     ],
     "sample_rate": 100.0,
     "anomaly_list": [],
-    "dataType": ""
+    "dataType": "EPG",
+    "macaddress": "FF:00:00:00:02:1E"
 }
