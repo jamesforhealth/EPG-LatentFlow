@@ -11,6 +11,7 @@ from scipy.signal import find_peaks, resample
 from influxDB_downloader import get_user_sessions, get_session_data, format_timestamp, sanitize_filename
 from model_find_peaks import detect_peaks_from_signal
 from model_pulse_representation import EPGBaselinePulseAutoencoder, predict_reconstructed_signal
+# from model_pulse_representation_explainable import predict_reconstructed_signal
 import torch
 import scipy
 # from model_wearing_anomaly_detection import predict_reconstructed_signal, predict_reconstructed_signal2, predict_reconstructed_signal_pulse
@@ -119,7 +120,7 @@ def find_peaks_helper(data, sample_rate, drop_rate, drop_rate_gain, timer_init, 
 def findValleysBasedOnPeaks(data, peaks, sample_rate):
     valleys = []
     searchRange = int((15 * sample_rate) / 100)
-    print(f'searchRange:{searchRange}, peaks:{peaks}, sample_rate:{sample_rate}')
+    # print(f'searchRange:{searchRange}, peaks:{peaks}, sample_rate:{sample_rate}')
 
     for peak in peaks:
         foundValley = False
@@ -845,6 +846,7 @@ class MainWindow(QMainWindow):
             else:  # labeled_DB
                 self.current_relative_path = os.path.relpath(file_path, "labeled_DB")
                 self.load_labeled_data(data)
+                self.reconstructed_data = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
 
             self.selected_points.clear()  # 清空Selected Point
             self.update_selected_points_label()  # 更新Selected Point的顯示
@@ -858,7 +860,7 @@ class MainWindow(QMainWindow):
 
         self.window_start = self.window_start_slider.value()
         window_data = self.smoothed_data_100hz[self.window_start:self.window_start + self.window_size]
-        print(f'len(window_data): {len(window_data)}')
+        # print(f'len(window_data): {len(window_data)}')
         if len(window_data) < self.window_size:
             return        
         self.fft_result = np.abs(np.fft.fft(window_data))#20 * np.log10(np.abs(np.fft.fft(window_data)))
@@ -1250,6 +1252,8 @@ class MainWindow(QMainWindow):
         for item in self.plot_widget.listDataItems():
             if isinstance(item, pg.PlotDataItem):
                 self.legend.addItem(item, item.name())
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
