@@ -818,7 +818,7 @@ class MainWindow(QMainWindow):
             
             # 這裡可以添加更多需要保存的數據
         }
-        print('Saving labeled data:', data)
+        # print('Saving labeled data:', data)
         with open(target_path, 'w') as f:
             json.dump(data, f, indent=4)
         
