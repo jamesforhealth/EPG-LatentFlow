@@ -818,13 +818,31 @@ class MainWindow(QMainWindow):
             
             # 這裡可以添加更多需要保存的數據
         }
+        
+        def convert_np_types(obj):
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, dict):
+                return {k: convert_np_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_np_types(i) for i in obj]
+            else:
+                return obj
+        
+        converted_data = convert_np_types(data)
+        
         # print('Saving labeled data:', data)
         with open(target_path, 'w') as f:
-            json.dump(data, f, indent=4)
+            json.dump(converted_data, f, indent=4)
         
         print("Saved labeled data to:", target_path)
 
-
+    
+    
     def update_file_tree(self, index):
         if index == 0:
             self.load_db_files(self.db_folder)
