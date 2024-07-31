@@ -13034,5 +13034,7 @@
         6150
     ],
     "sample_rate": 250.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": "FF:00:00:00:02:2A"
 }
