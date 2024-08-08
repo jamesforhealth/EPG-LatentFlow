@@ -1267,7 +1267,7 @@ class MainWindow(QMainWindow):
 
         if self.checkbox_x_points.isChecked():
             x_points_in_range = [i for i in self.x_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(0, 0, 0), symbolSize=7, name='X Points')
+            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(0, 0, 0), symbolSize=15, name='X Points')
 
         if self.checkbox_y_points.isChecked():
             y_points_in_range = [i for i in self.y_points if 0 <= i < len(self.smoothed_data)]
