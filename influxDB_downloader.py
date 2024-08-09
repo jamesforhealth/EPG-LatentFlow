@@ -61,7 +61,7 @@ def main():
         all_data = []
         # for user in users:
         # user_id = user["idusers"]
-        user_id = 92
+        user_id = 82
         user_dir = os.path.join(base_dir, str(user_id))
         os.makedirs(user_dir, exist_ok=True)  # 為每個用戶建立資料夾
         sessions = get_user_sessions(user_id)
