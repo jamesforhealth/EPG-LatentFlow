@@ -558,11 +558,14 @@ class MainWindow(QMainWindow):
         
     def count_files_in_directory(self, directory, file_extension):
         total_count = 0
+        icp_count = 0
         for root, dirs, files in os.walk(directory):
             for file in files:
                 if file.endswith(file_extension):
                     total_count += 1
-        return total_count
+                    if "icp" in file.lower() or "ccp" in file.lower():
+                      icp_count += 1
+        return total_count,icp_count
     
     def on_fft_mouse_move(self, event):
         if len(self.fft_freq) == 0:
