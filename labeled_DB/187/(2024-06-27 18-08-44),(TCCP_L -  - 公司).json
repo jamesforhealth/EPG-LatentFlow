@@ -5696,5 +5696,7 @@
         2609
     ],
     "sample_rate": 250.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "TICP",
+    "macaddress": "FF:00:00:00:02:0F1"
 }
