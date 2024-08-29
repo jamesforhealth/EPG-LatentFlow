@@ -1274,23 +1274,23 @@ class MainWindow(QMainWindow):
 
         if self.checkbox_y_points.isChecked():
             y_points_in_range = [i for i in self.y_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(y_points_in_range, [self.smoothed_data[i] for i in y_points_in_range], pen=None, symbol='o', symbolBrush=(0, 255, 255), symbolSize=7, name='Y Points')
+            self.plot_widget.plot(y_points_in_range, [self.smoothed_data[i] for i in y_points_in_range], pen=None, symbol='o', symbolBrush=(0, 255, 255), symbolSize=15, name='Y Points')
 
         if self.checkbox_z_points.isChecked():
             z_points_in_range = [i for i in self.z_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(z_points_in_range, [self.smoothed_data[i] for i in z_points_in_range], pen=None, symbol='o', symbolBrush=(255, 0, 255), symbolSize=7, name='Z Points')
+            self.plot_widget.plot(z_points_in_range, [self.smoothed_data[i] for i in z_points_in_range], pen=None, symbol='o', symbolBrush=(255, 0, 255), symbolSize=15, name='Z Points')
 
         if self.checkbox_a_points.isChecked():
             a_points_in_range = [i for i in self.a_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(a_points_in_range, [self.smoothed_data[i] for i in a_points_in_range], pen=None, symbol='o', symbolBrush=(128, 0, 128), symbolSize=7, name='A Points')
+            self.plot_widget.plot(a_points_in_range, [self.smoothed_data[i] for i in a_points_in_range], pen=None, symbol='o', symbolBrush=(128, 0, 128), symbolSize=15, name='A Points')
 
         if self.checkbox_b_points.isChecked():
             b_points_in_range = [i for i in self.b_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(b_points_in_range, [self.smoothed_data[i] for i in b_points_in_range], pen=None, symbol='o', symbolBrush=(128, 128, 0), symbolSize=7, name='B Points')
+            self.plot_widget.plot(b_points_in_range, [self.smoothed_data[i] for i in b_points_in_range], pen=None, symbol='o', symbolBrush=(128, 128, 0), symbolSize=15, name='B Points')
 
         if self.checkbox_c_points.isChecked():
             c_points_in_range = [i for i in self.c_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(c_points_in_range, [self.smoothed_data[i] for i in c_points_in_range], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=7, name='C Points')
+            self.plot_widget.plot(c_points_in_range, [self.smoothed_data[i] for i in c_points_in_range], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=15, name='C Points')
 
         self.legend.clear()
         for item in self.plot_widget.listDataItems():

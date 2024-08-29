@@ -2697,6 +2697,7 @@
         68,
         134,
         199,
+        256,
         315,
         373,
         431,
@@ -2728,5 +2729,7 @@
         1209
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }

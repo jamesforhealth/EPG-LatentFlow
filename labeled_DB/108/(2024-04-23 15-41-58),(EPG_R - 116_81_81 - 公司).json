@@ -6413,6 +6413,7 @@
         2427,
         2508,
         2586,
+        2662,
         2739,
         2812,
         2881,
@@ -6460,5 +6461,7 @@
         3035
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
