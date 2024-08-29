@@ -6653,5 +6653,7 @@
         3105
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }

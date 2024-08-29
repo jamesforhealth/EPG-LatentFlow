@@ -4552,6 +4552,7 @@
         1446,
         1521,
         1590,
+        1661,
         1732,
         1805,
         1877,
@@ -4588,5 +4589,7 @@
         2100
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }

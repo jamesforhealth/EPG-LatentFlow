@@ -6351,6 +6351,7 @@
         358,
         449,
         546,
+        641,
         734,
         825,
         922,
@@ -6413,5 +6414,7 @@
         3054
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }

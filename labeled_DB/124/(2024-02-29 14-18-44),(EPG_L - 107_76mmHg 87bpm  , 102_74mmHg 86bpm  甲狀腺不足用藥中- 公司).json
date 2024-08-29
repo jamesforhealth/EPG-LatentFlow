@@ -8485,6 +8485,7 @@
         3033,
         3102,
         3171,
+        3239,
         3308,
         3378,
         3447,
@@ -8556,5 +8557,7 @@
         4009
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
