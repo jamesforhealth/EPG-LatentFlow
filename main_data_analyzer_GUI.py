@@ -10,7 +10,8 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks, resample
 from influxDB_downloader import get_user_sessions, get_session_data, format_timestamp, sanitize_filename
 from model_find_peaks import detect_peaks_from_signal
-from model_pulse_representation import EPGBaselinePulseAutoencoder, predict_reconstructed_signal
+from model_pulse_representation import EPGBaselinePulseAutoencoder#, predict_reconstructed_signal
+from model_pulse_representation_explainable import DisentangledAutoencoder, predict_reconstructed_signal, predict_corrected_reconstructed_signal
 import torch
 import scipy
 # from model_wearing_anomaly_detection import predict_reconstructed_signal, predict_reconstructed_signal2, predict_reconstructed_signal_pulse
@@ -119,7 +120,7 @@ def find_peaks_helper(data, sample_rate, drop_rate, drop_rate_gain, timer_init, 
 def findValleysBasedOnPeaks(data, peaks, sample_rate):
     valleys = []
     searchRange = int((15 * sample_rate) / 100)
-    print(f'searchRange:{searchRange}, peaks:{peaks}, sample_rate:{sample_rate}')
+    # print(f'searchRange:{searchRange}, peaks:{peaks}, sample_rate:{sample_rate}')
 
     for peak in peaks:
         foundValley = False
@@ -179,13 +180,13 @@ def find_epg_points(input_data, peaks, valleys, sample_rate):
         elif len(found_points) == 1:
             if found_points[0][0] - peak_idx <= systolica_range: #找到的那一組是za點
                 found_points = [found_points[0],(-1, -1)]
-            else: #找到的那一組是bc點
+            else: #找到的那一组是bc点
                 found_points = [(-1, -1), found_points[0]]
         elif found_points[0][0] - peak_idx > systolica_range: #找到不少於兩組但第一組是bc點
             found_points = [(-1, -1), found_points[0]]
         
         elif found_points[1][0] - peak_idx <= systolica_range: #找到不少於兩組但第二組還不是bc點
-            found_points = [found_points[0], found_points[2]] if len(found_points) > 2 else [found_points[0], (-1, -1)]  #如果za附近多於一組則會出現例外，但不好處理    
+            found_points = [found_points[0], found_points[2]] if len(found_points) > 2 else [found_points[0], (-1, -1)]  #如果za附近多於一组则会出现例外，但不好处理    
 
 
         results.append(found_points)
@@ -230,6 +231,11 @@ class MainWindow(QMainWindow):
         self.baseline_model3.load_state_dict(torch.load(model_path,map_location = self.device))
         self.baseline_model3.eval()
 
+        self.disentangled_model = DisentangledAutoencoder(target_len=100, physio_dim=15, wear_dim=10).to(self.device)
+        model_path = './DisentangledAutoencoder_pretrain_wearing2.pth'
+        self.disentangled_model.load_state_dict(torch.load(model_path, map_location=self.device))
+        self.disentangled_model.eval()
+
         self.setWindowTitle("Waveform Labeling")
         self.resize(1200, 800)
 
@@ -250,7 +256,8 @@ class MainWindow(QMainWindow):
         self.smoothed_data = []
         self.standardized_data = []
         self.smoothed_data_100hz = []
-        self.reconstructed_data = []
+        self.reconstructed_signal = []
+        self.wear_corrected_signal = []
         self.noisy_data = []
         self.target_snr_db = 20
         self.x_points = []
@@ -315,9 +322,13 @@ class MainWindow(QMainWindow):
         self.checkbox_smoothed_data.setChecked(True)
         self.checkbox_smoothed_data.stateChanged.connect(self.plot_data)
 
-        self.checkbox_reconstructed_data = QCheckBox("Reconstructed Data")
-        self.checkbox_reconstructed_data.setChecked(True)
-        self.checkbox_reconstructed_data.stateChanged.connect(self.plot_data)
+        self.checkbox_reconstructed_signal = QCheckBox("Reconstructed Data")
+        self.checkbox_reconstructed_signal.setChecked(True)
+        self.checkbox_reconstructed_signal.stateChanged.connect(self.plot_data)
+
+        self.checkbox_wear_corrected_signal = QCheckBox("Wear Corrected Signal")
+        self.checkbox_wear_corrected_signal.setChecked(True)
+        self.checkbox_wear_corrected_signal.stateChanged.connect(self.plot_data)
 
         self.checkbox_noisy_data = QCheckBox("Noisy Data")
         self.checkbox_noisy_data.setChecked(False)
@@ -350,16 +361,18 @@ class MainWindow(QMainWindow):
         self.checkbox_c_points.setChecked(False)
         self.checkbox_c_points.stateChanged.connect(self.plot_data)
 
+
+
         checkbox_layout = QVBoxLayout()
         checkbox_layout.addWidget(self.checkbox_raw_data)
         checkbox_layout.addWidget(self.checkbox_smoothed_data)
         checkbox_layout.addWidget(self.checkbox_noisy_data)
-        checkbox_layout.addWidget(self.checkbox_reconstructed_data)
+        checkbox_layout.addWidget(self.checkbox_reconstructed_signal)
+        checkbox_layout.addWidget(self.checkbox_wear_corrected_signal)
         checkbox_layout.addWidget(self.checkbox_x_points)
         checkbox_layout.addWidget(self.checkbox_y_points)
         checkbox_layout.addWidget(self.checkbox_z_points)
         checkbox_layout.addWidget(self.checkbox_a_points)
-        checkbox_layout.addWidget(self.checkbox_b_points)
         checkbox_layout.addWidget(self.checkbox_c_points)
         checkbox_layout.addWidget(self.resample_noise_button)
 
@@ -884,7 +897,8 @@ class MainWindow(QMainWindow):
             else:  # labeled_DB
                 self.current_relative_path = os.path.relpath(file_path, "labeled_DB")
                 self.load_labeled_data(data)
-
+                self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+                self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
             self.selected_points.clear()  # 清空Selected Point
             self.update_selected_points_label()  # 更新Selected Point的顯示
             self.update_points_edit()
@@ -897,7 +911,7 @@ class MainWindow(QMainWindow):
 
         self.window_start = self.window_start_slider.value()
         window_data = self.smoothed_data_100hz[self.window_start:self.window_start + self.window_size]
-        print(f'len(window_data): {len(window_data)}')
+        # print(f'len(window_data): {len(window_data)}')
         if len(window_data) < self.window_size:
             return        
         self.fft_result = np.abs(np.fft.fft(window_data))#20 * np.log10(np.abs(np.fft.fft(window_data)))
@@ -964,11 +978,12 @@ class MainWindow(QMainWindow):
 
             self.find_peaks_and_valleys(self.smoothed_data, int(self.sample_rate))#, 0.3, 0.9, 0.3, 0.03, 0.03, "on_peak", 0.06)
             self.update_latent_vector()
-            # self.reconstructed_data = predict_transformer_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-            self.reconstructed_data = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-            # self.reconstructed_data = reconstruct_pulse_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-            # self.reconstructed_data = predict_reconstructed_signal2(self.smoothed_data, int(self.sample_rate)) #predict_reconstructed_signal_pulse(self.smoothed_data, int(self.sample_rate), self.x_points)
-            # self.reconstructed_data = predict_LSTM_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            # self.reconstructed_signal = predict_transformer_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            # self.reconstructed_signal = reconstruct_pulse_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            # self.reconstructed_signal = predict_reconstructed_signal2(self.smoothed_data, int(self.sample_rate)) #predict_reconstructed_signal_pulse(self.smoothed_data, int(self.sample_rate), self.x_points)
+            # self.reconstructed_signal = predict_LSTM_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
         self.find_points()
 
     def update_latent_vector(self):
@@ -1233,6 +1248,7 @@ class MainWindow(QMainWindow):
         if len(self.smoothed_data) > 0:
             self.noisy_data = self.add_gaussian_noise_numpy(self.smoothed_data)#self.add_noise_with_snr(self.smoothed_data, self.target_snr_db)
             self.plot_data()
+        
 
     def plot_data(self):
         self.plot_widget.clear()
@@ -1243,11 +1259,15 @@ class MainWindow(QMainWindow):
         if self.checkbox_smoothed_data.isChecked():
             self.plot_widget.plot(self.smoothed_data, pen=pg.mkPen(color=(0, 0, 255), width=2), name='Smoothed Data')
 
-        if self.checkbox_reconstructed_data.isChecked():
-            self.plot_widget.plot(self.reconstructed_data, pen=pg.mkPen(color=(100, 155, 255), width=2), name='Reconstructed Data')
+        if self.checkbox_reconstructed_signal.isChecked():
+            self.plot_widget.plot(self.reconstructed_signal, pen=pg.mkPen(color=(100, 155, 255), width=2), name='Reconstructed Data')
+
+        if self.checkbox_wear_corrected_signal.isChecked():
+            self.plot_widget.plot(self.wear_corrected_signal, pen=pg.mkPen(color=(48, 80, 80), width=2), name='Wearing Corrected Data')
 
         if self.checkbox_noisy_data.isChecked() and len(self.noisy_data) > 0:
             self.plot_widget.plot(self.noisy_data, pen=pg.mkPen(color=(255, 0, 0), width=1), name='Noisy Data')
+
 
         # if self.latent_vectors:
         #     current_pulse = self.pulse_slider.value()
@@ -1296,7 +1316,13 @@ class MainWindow(QMainWindow):
         for item in self.plot_widget.listDataItems():
             if isinstance(item, pg.PlotDataItem):
                 self.legend.addItem(item, item.name())
+
+
 if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

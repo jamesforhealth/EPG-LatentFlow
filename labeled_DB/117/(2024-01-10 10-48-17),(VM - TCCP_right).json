@@ -34417,7 +34417,11 @@
         15897
     ],
     "sample_rate": 100.0,
+<<<<<<< HEAD
     "anomaly_list": [],
     "dataType": "TICP",
     "macaddress": ""
+=======
+    "anomaly_list": [], "dataType": "TICP"
+>>>>>>> main
 }

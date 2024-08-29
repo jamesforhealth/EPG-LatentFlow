@@ -4640,6 +4640,7 @@
     "y_points": [],
     "z_points": [],
     "a_points": [],
+<<<<<<< HEAD
     "b_points": [
         61,
         126,
@@ -4674,6 +4675,9 @@
         2190,
         2257
     ],
+=======
+    "b_points": [],
+>>>>>>> main
     "c_points": [],
     "sample_rate": 100.0,
     "anomaly_list": [],

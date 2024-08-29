@@ -9,7 +9,7 @@ Baseline model:
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.models import densenet121
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 import numpy as np
@@ -17,7 +17,7 @@ from sklearn.manifold import TSNE
 from sklearn.svm import OneClassSVM
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
-import matplotlib.pyplot as plt
+
 import os
 import sys
 import json
@@ -31,102 +31,10 @@ import math
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
 import h5py
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
 
-def analyze_diff_vectors(encoded_data):
-    all_diff_vectors = []
-    for vectors in encoded_data.values():
-        diff_vectors = np.diff(vectors, axis=0)
-        all_diff_vectors.extend(diff_vectors)
-    
-    all_diff_vectors = np.array(all_diff_vectors)
-    
-    # 执行PCA
-    pca = PCA()
-    pca.fit(all_diff_vectors)
-    
-    # 计算累积解释方差比
-    cumulative_variance_ratio = np.cumsum(pca.explained_variance_ratio_)
-    
-    # 绘制累积解释方差比
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(1, len(cumulative_variance_ratio) + 1), cumulative_variance_ratio, 'bo-')
-    plt.xlabel('Number of Components')
-    plt.ylabel('Cumulative Explained Variance Ratio')
-    plt.title('PCA Analysis of Diff Vectors')
-    plt.grid(True)
-    plt.show()
-    
-    # 找出解释95%方差所需的维度数
-    n_components_95 = np.argmax(cumulative_variance_ratio >= 0.99) + 1
-    print(f"Number of components needed to explain 95% of the variance: {n_components_95}")
-    
-    # 分析每个主成分的贡献
-    print("\nTop 10 principal components and their explained variance ratio:")
-    for i in range(20):
-        print(f"PC{i+1}: {pca.explained_variance_ratio_[i]:.4f}")
-    
-    return pca, n_components_95, all_diff_vectors
+from datautils import save_encoded_data, predict_latent_vector_list, predict_encoded_dataset
 
-def analyze_principal_components(pca, n_components):
-    print("\nTop 5 principal components:")
-    for i in range(5):
-        print(f"PC{i+1}:")
-        print(pca.components_[i])
-        print("---")
 
-def visualize_projections(all_diff_vectors, pca):
-    projected = pca.transform(all_diff_vectors)
-    plt.figure(figsize=(12, 4))
-    
-    plt.subplot(131)
-    plt.scatter(projected[:, 0], projected[:, 1], alpha=0.1)
-    plt.xlabel('PC1')
-    plt.ylabel('PC2')
-    plt.title('Projection on PC1 and PC2')
-    
-    plt.subplot(132)
-    plt.scatter(projected[:, 0], projected[:, 2], alpha=0.1)
-    plt.xlabel('PC1')
-    plt.ylabel('PC3')
-    plt.title('Projection on PC1 and PC3')
-    
-    plt.subplot(133)
-    plt.scatter(projected[:, 1], projected[:, 2], alpha=0.1)
-    plt.xlabel('PC2')
-    plt.ylabel('PC3')
-    plt.title('Projection on PC2 and PC3')
-    
-    plt.tight_layout()
-    plt.show()
-
-def analyze_reconstruction_error(all_diff_vectors, pca, n_components_range):
-    errors = []
-    for n in n_components_range:
-        pca_n = PCA(n_components=n)
-        projected = pca_n.fit_transform(all_diff_vectors)
-        reconstructed = pca_n.inverse_transform(projected)
-        error = np.mean(np.sum((all_diff_vectors - reconstructed)**2, axis=1))
-        errors.append(error)
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(n_components_range, errors, 'bo-')
-    plt.xlabel('Number of Components')
-    plt.ylabel('Mean Squared Reconstruction Error')
-    plt.title('Reconstruction Error vs. Number of Components')
-    plt.grid(True)
-    plt.show()
-
-def save_encoded_data(encoded_data, output_dir):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
-    for path, vectors in encoded_data.items():
-        output_path = os.path.join(output_dir, path.replace('/', '_') + '.h5')
-        with h5py.File(output_path, 'w') as f:
-            f.create_dataset('data', data=vectors)
-            f.attrs['original_path'] = path
 # class PulseDataset(Dataset):
 #     def __init__(self, json_files):
 #         self.data = []
@@ -171,60 +79,7 @@ def save_encoded_data(encoded_data, output_dir):
 #         return torch.tensor(pulse, dtype=torch.float32)
     
 
-def evaluate_model(model, dataloader, criterion, device):
-    model.eval()
-    total_loss = 0
-    with torch.no_grad():
-        for batch in dataloader:
-            pulse = batch.to(device)
-            # output, _ = model(pulse)
-            # loss = criterion(output, pulse)
-            recon_batch, mu, logvar = model(pulse)
-            loss = loss_function(recon_batch, pulse, mu, logvar)
-            total_loss += loss.item()
-    total_loss /= len(dataloader)
-    return total_loss
 
-def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, epochs=2000, save_interval=1):
-    model.train()
-    min_loss = float('inf')
-    model_path = 'pulse_interpolate_autoencoder2.pth'
-    model_path = 'pulse_interpolate_autoencoder_VAE.pth' #Epoch [1/2000], Training Loss: 12.8088734311, Testing Loss: 4.2140154323
-    
-    # 嘗試載入已有的模型參數
-    if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path))
-        print(f"Loaded model parameters from {model_path}")
-
-    for epoch in range(epochs):
-        total_loss = 0
-        for batch in train_dataloader:
-            pulse = batch.to(device)
-            optimizer.zero_grad()
-            # for i in range(30):
-            #     noise_pulse = add_gaussian_noise_torch(pulse)
-            #     output, _ = model(noise_pulse)
-            # # output, _ = model(pulse)
-            #     loss = criterion(output, pulse)
-            recon_batch, mu, logvar = model(pulse)
-            loss = loss_function(recon_batch, pulse, mu, logvar)
-
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-        total_loss /= len(train_dataloader)
-        
-        test_loss = evaluate_model(model, test_dataloader, criterion, device)
-        print(f"Epoch [{epoch+1}/{epochs}], Training Loss: {total_loss:.10f}, Testing Loss: {test_loss:.10f}")
-        
-        # Save model parameters if test loss decreases
-        if (epoch + 1) % save_interval == 0 and test_loss < min_loss * 0.95:
-            min_loss = test_loss
-            torch.save(model.state_dict(), model_path)
-            print(f"Saved model parameters at epoch {epoch+1}, Testing Loss: {test_loss:.10f}, path: {model_path}")
-        # Save model parameters every save_interval epochs
-        # elif (epoch + 1) % save_interval == 0:
-        #     torch.save(model.state_dict(), model_path)
 
 # 提取潛在向量並附加時間長度信息
 def extract_latent_vectors(model, dataloader, device):
@@ -625,18 +480,74 @@ def loss_function(recon_x, x, mu, logvar):
 #             torch.save(model.state_dict(), model_path)
 #             print(f'Saved model to {model_path}, epoch loss: {total_loss}')
 
+def evaluate_model(model, dataloader, criterion, device):
+    model.eval()
+    total_loss = 0
+    with torch.no_grad():
+        for batch in dataloader:
+            pulse = batch.to(device)
+            output, _ = model(pulse)
+            loss = criterion(output, pulse)
+            # recon_batch, mu, logvar = model(pulse)
+            # loss = loss_function(recon_batch, pulse, mu, logvar)
+            total_loss += loss.item()
+    total_loss /= len(dataloader)
+    return total_loss
+
+def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, epochs=1000, save_interval=1):
+    model.train()
+    min_loss = float('inf')
+    model_path = 'pulse_interpolate_autoencoder.pth'
+    # model_path = 'pulse_interpolate_autoencoder_test.pth' #Epoch [1/2000], Training Loss: 0.4247541058, Testing Loss: 0.1003478393
+    # model_path = 'pulse_interpolate_autoencoder2.pth'
+    # model_path = 'pulse_interpolate_autoencoder_VAE.pth' #Epoch [1/2000], Training Loss: 12.8088734311, Testing Loss: 4.2140154323
+    
+    # 嘗試載入已有的模型參數
+    if os.path.exists(model_path):
+        model.load_state_dict(torch.load(model_path))
+        print(f"Loaded model parameters from {model_path}")
+
+    for epoch in range(epochs):
+        total_loss = 0
+        for batch in train_dataloader:
+            pulse = batch.to(device)
+            optimizer.zero_grad()
+            output, _ = model(pulse)
+            loss = criterion(output, pulse)
+            # for i in range(10):
+            #     noise_pulse = add_gaussian_noise_torch(pulse)
+            #     output, _ = model(noise_pulse)
+            # # output, _ = model(pulse)
+            #     loss = criterion(output, pulse)
+            # recon_batch, mu, logvar = model(pulse)
+            # loss = loss_function(recon_batch, pulse, mu, logvar)
+
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+        total_loss /= len(train_dataloader)
+        # total_loss /= 10
+        test_loss = evaluate_model(model, test_dataloader, criterion, device)
+        print(f"Epoch [{epoch+1}/{epochs}], Training Loss: {total_loss:.10f}, Testing Loss: {test_loss:.10f}")
+        
+        # Save model parameters if test loss decreases
+        if save_interval != 0 and (epoch + 1) % save_interval == 0 and test_loss < min_loss * 0.95:
+            min_loss = test_loss
+            # torch.save(model.state_dict(), model_path)
+            print(f"Saved model parameters at epoch {epoch+1}, Testing Loss: {test_loss:.10f}")
+
 class EPGBaselinePulseAutoencoder(nn.Module):
-    def __init__(self, target_len, hidden_dim=50, latent_dim=30):
+    def __init__(self, target_len, hidden_dim=50, latent_dim=30, dropout=0.5):
         super().__init__()
         self.enc = nn.Sequential(
             nn.Linear(target_len, hidden_dim),
-            nn.Dropout(0.1),
+            nn.Dropout(dropout),
             nn.ReLU(),
             nn.Linear(hidden_dim, latent_dim)
         )
         self.dec = nn.Sequential(
             nn.Linear(latent_dim, hidden_dim),
-            nn.Dropout(0.1),
+            nn.Dropout(dropout),
             nn.ReLU(),
             nn.Linear(hidden_dim, target_len)
         )
@@ -683,8 +594,20 @@ class EPGBaselinePulseVAE(nn.Module):
 #     return BCE + KLD
 
 
-def predict_latent_vector_list(model, signal, sample_rate, peaks, target_len = 100):#100):
+
+
+def predict_reconstructed_signal(signal, sample_rate, peaks):
+    target_len = 100
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model_path = 'pulse_interpolate_autoencoder2.pth' # target_len = 200
+    model_path = 'pulse_interpolate_autoencoder.pth' # target_len = 100
+    model_path = 'pulse_interpolate_autoencoder_test.pth' # target_len = 100 
+    model = EPGBaselinePulseAutoencoder(target_len).to(device)
+    model.load_state_dict(torch.load(model_path,map_location = device))
+    model.eval()
+
+    #複製一個原始訊號的陣列值
+    origin_signal = np.copy(signal)
 
     # 重採樣信號
     resample_ratio = 1.0
@@ -698,75 +621,6 @@ def predict_latent_vector_list(model, signal, sample_rate, peaks, target_len = 1
     std = np.std(signal)
     signal = (signal - mean) / std
     # print(f'peaks: {peaks}')
-    # 逐拍重建
-    latent_vector_list = []
-    for i in range(len(peaks) - 1):
-        start_idx = peaks[i]
-        end_idx = peaks[i + 1]
-        pulse = signal[start_idx:end_idx]
-        pulse_length = end_idx - start_idx  # 記錄脈衝的原始長度
-
-        if pulse_length > 1:
-            # 插值到目標長度
-            interp_func = scipy.interpolate.interp1d(np.arange(pulse_length), pulse, kind='linear', fill_value="extrapolate")
-            pulse_resampled = interp_func(np.linspace(0, pulse_length - 1, target_len))
-            pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(device)
-
-            with torch.no_grad():
-                _, latent_vector = model(pulse_tensor)
-                latent_vector = latent_vector.squeeze().cpu().numpy()
-                latent_vector = np.concatenate([latent_vector, np.array([pulse_length/100])], axis=0)
-
-                # print(f'i:{i}, start_idx:{start_idx}, latent_vector:{latent_vector}')
-                latent_vector_list.append(latent_vector)
-            # 將重建的脈衝還原為原始長度
-
-    #計算前後latent_vector之間的相似程度
-    similarity_list = []
-    distance_list = []
-    diff_vectors = []
-    for i in range(len(latent_vector_list) - 1):
-        this_vec = latent_vector_list[i]
-        next_vec = latent_vector_list[i + 1]
-
-        similarity = np.dot(this_vec, next_vec) / (np.linalg.norm(this_vec) * np.linalg.norm(next_vec))
-        distance = np.linalg.norm(this_vec - next_vec)
-        diff_vector = next_vec - this_vec
-
-        similarity_list.append(similarity)
-        distance_list.append(distance)
-        diff_vectors.append(diff_vector)
-
-    # for i, (sim, dist, diff) in enumerate(zip(similarity_list, distance_list, diff_vectors)):
-    #     print(f'Pulse {i} to Pulse {i+1} Diff Vector:{diff}, Norm: {np.linalg.norm(diff):.4f}')
-    norms = [np.linalg.norm(l) for l in diff_vectors]
-    print(f'norm of diff vectors: {norms}')
-    #print norm of latent vectors
-    norms = [np.linalg.norm(l) for l in latent_vector_list]
-    print(f'norm of latent_vector_list: {norms}')
-    return latent_vector_list
-
-def predict_reconstructed_signal(signal, sample_rate, peaks):
-    target_len = 100
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_path = 'pulse_interpolate_autoencoder2.pth' # target_len = 200
-    model_path = 'pulse_interpolate_autoencoder.pth' # target_len = 100
-    model = EPGBaselinePulseAutoencoder(target_len).to(device)
-    model.load_state_dict(torch.load(model_path,map_location = device))
-    model.eval()
-
-    # 重採樣信號
-    resample_ratio = 1.0
-    if sample_rate != 100:
-        resample_ratio = 100 / sample_rate
-        signal = scipy.signal.resample(signal, int(len(signal) * resample_ratio))
-        peaks = [int(p * resample_ratio) for p in peaks]  # 調整peaks索引
-
-    # 全局標準化
-    mean = np.mean(signal)
-    std = np.std(signal)
-    signal = (signal - mean) / std
-    print(f'peaks: {peaks}')
     # 逐拍重建
     latent_vector_list = []
     reconstructed_signal = np.copy(signal)
@@ -806,8 +660,8 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
         similarity_list.append(similarity) 
         distance = np.linalg.norm(this_vec - next_vec)
         distance_list.append(distance)
-    print(f'similarity_list:{similarity_list}')
-    print(f'distance_list:{distance_list}')
+    # print(f'similarity_list:{similarity_list}')
+    # print(f'distance_list:{distance_list}')
 
 
     # 反標準化
@@ -816,6 +670,10 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
     # 根據原始採樣率調整重構信號的長度
     original_length = int(len(reconstructed_signal) / resample_ratio)
     reconstructed_signal = scipy.signal.resample(reconstructed_signal, original_length)
+
+    #計算原始訊號跟重構訊號的MAE
+    mae = np.mean(np.abs(origin_signal - reconstructed_signal))
+    print(f'MAE: {mae}')
 
     return reconstructed_signal
 
@@ -877,7 +735,7 @@ def main():
     data_folder = 'labeled_DB'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'torch device: {device}')
-    json_files = get_json_files(data_folder)  # 实现一个函数来获取所有的JSON文件路径
+    json_files = get_json_files(data_folder, exclude_keywords=[])  # 实现一个函数来获取所有的JSON文件路径
 
     # 設置參數
     input_dim = 1
@@ -886,7 +744,7 @@ def main():
     num_layers =2
     batch_size = 32
     lr = 1e-4
-    target_len = 200
+    target_len = 100
     #'pulse_interpolate_autoencoder.pth' : 一般的pulse autoencoder target_len = 100
     #'pulse_interpolate_autoencoder2.pth' : denoise autoencoder  target_len = 200
 
@@ -894,81 +752,62 @@ def main():
 
     # 加載並劃分數據集
     dataset = PulseDataset(json_files, target_len)
-    # dataset = PulseDataset(json_files)
     train_data, test_data = train_test_split(dataset, test_size=0.2, random_state=42)
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-
+    #計算訓練資料跟測試資料的長度
+    print(f'train_data_len:{len(train_data)}, test_data_len:{len(test_data)}')
     # 初始化模型和優化器
-    model = EPGBaselinePulseAutoencoder(target_len=100).to(device)
+    model = EPGBaselinePulseAutoencoder(target_len=target_len).to(device)
     # model = EPGBaselinePulseVAE(target_len=200).to(device)
     # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
-    # criterion = nn.MSELoss()
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    # trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # print(f'Total number of model parameters: {trainable_params}, model:{model}') 
+    criterion = nn.L1Loss()  #Use L1Loss to train first
+    criterion2 = nn.MSELoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5) #Adam
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Total number of model parameters: {trainable_params}, model:{model}') 
     # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
+    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion2, device)
 
-    model_path = 'pulse_interpolate_autoencoder.pth'
+    model_path = 'pulse_interpolate_autoencoder_test.pth'
     model.load_state_dict(torch.load(model_path))
     # model_path = 'pulse_interpolate_autoencoder.pth'
     # model = EPGBaselinePulseAutoencoder(100).to(device)
     # model.load_state_dict(torch.load(model_path))
     
-    model.eval()
-    encoded_data = {} 
-    for json_file in json_files:
-        try:
-            #get relative path to data_folder
-            if json_file.startswith('labeled_DB'):
-                relative_path = os.path.relpath(json_file, 'labeled_DB').split(',')[0].replace('\\', '  ').replace('.', ' ')
-                # input(f'relative_path: {relative_path}')
-            with open(json_file, 'r') as f:
-                json_data = json.load(f)
-                signal = json_data['smoothed_data']
-                original_sample_rate = json_data.get('sample_rate', 100)
-                x_points = json_data['x_points']
-                latent_vector_list = predict_latent_vector_list(model, signal, original_sample_rate, x_points, target_len=100) 
-
-                # print(f'latent_vector_list: {latent_vector_list}')
-                # print(f'File: {json_file}')
-                # for i, (sim, dist, diff) in enumerate(zip(similarity_list, distance_list, diff_vectors)):
-                #     print(f'Pulse {i} to Pulse {i+1} - Similarity: {sim:.4f}, Distance: {dist:.4f}, Diff Vector Norm: {np.linalg.norm(diff):.4f}')
-                encoded_data[relative_path] = np.array(latent_vector_list)
-        except Exception as e:
-            print(f'Error in loading {json_file}: {e}')   
-    # save_encoded_data(encoded_data, 'latent_vectors_1')
+    encoded_data = predict_encoded_dataset(model, json_files)
+    save_encoded_data(encoded_data, 'latent_vectors_0727')
 
     # 分析差异向量
-    pca, n_components_95, all_diff_vectors = analyze_diff_vectors(encoded_data)
+    # pca, n_components_95, all_diff_vectors = analyze_diff_vectors(encoded_data)
 
-    # 分析主成分
-    analyze_principal_components(pca, n_components_95)
+    # # 分析主成分
+    # analyze_principal_components(pca, n_components_95)
 
-    # 可视化投影
-    visualize_projections(all_diff_vectors, pca)
+    # # 可视化投影
+    # visualize_projections(all_diff_vectors, pca)
 
-    # 分析重建误差
-    n_components_range = range(1, min(101, len(pca.explained_variance_ratio_) + 1))
-    analyze_reconstruction_error(all_diff_vectors, pca, n_components_range)
+    # # 分析重建误差
+    # n_components_range = range(1, min(101, len(pca.explained_variance_ratio_) + 1))
+    # analyze_reconstruction_error(all_diff_vectors, pca, n_components_range)
     
 
     # 統計每個維度的分佈範圍
-    # all_latent_vectors = []
-    # for vectors in encoded_data.values():
-    #     all_latent_vectors.extend(vectors)
-    # all_latent_vectors = np.array(all_latent_vectors)
+    all_latent_vectors = []
+    for vectors in encoded_data.values():
+        all_latent_vectors.extend(vectors)
+    all_latent_vectors = np.array(all_latent_vectors)
 
-    # min_values = np.min(all_latent_vectors, axis=0)
-    # max_values = np.max(all_latent_vectors, axis=0)
-    # mean_values = np.mean(all_latent_vectors, axis=0)
-    # std_values = np.std(all_latent_vectors, axis=0)
+    min_values = np.min(all_latent_vectors, axis=0)
+    max_values = np.max(all_latent_vectors, axis=0)
+    mean_values = np.mean(all_latent_vectors, axis=0)
+    std_values = np.std(all_latent_vectors, axis=0)
 
-    # print(f"Min values: {min_values}")
-    # print(f"Max values: {max_values}")
-    # print(f"Mean values: {mean_values}")
-    # print(f"Std values: {std_values}")
+    print(f"Min values: {min_values}")
+    print(f"Max values: {max_values}")
+    print(f"Mean values: {mean_values}")
+    print(f"Std values: {std_values}")
 
     # # 编码所有脉冲
     # encoded_data = encode_pulses(model, json_files, target_len, device=device)
