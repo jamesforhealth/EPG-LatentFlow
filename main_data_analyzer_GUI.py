@@ -354,7 +354,7 @@ class MainWindow(QMainWindow):
         self.checkbox_a_points.stateChanged.connect(self.plot_data)
 
         self.checkbox_b_points = QCheckBox("B Points")
-        self.checkbox_b_points.setChecked(False)
+        self.checkbox_b_points.setChecked(True)
         self.checkbox_b_points.stateChanged.connect(self.plot_data)
 
         self.checkbox_c_points = QCheckBox("C Points")
@@ -373,6 +373,7 @@ class MainWindow(QMainWindow):
         checkbox_layout.addWidget(self.checkbox_y_points)
         checkbox_layout.addWidget(self.checkbox_z_points)
         checkbox_layout.addWidget(self.checkbox_a_points)
+        checkbox_layout.addWidget(self.checkbox_b_points)
         checkbox_layout.addWidget(self.checkbox_c_points)
         checkbox_layout.addWidget(self.resample_noise_button)
 
