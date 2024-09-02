@@ -16391,8 +16391,7 @@
         7199,
         7416,
         7642,
-        7859,
-        8072
+        7859
     ],
     "c_points": [
         173,
@@ -16432,5 +16431,7 @@
         7881
     ],
     "sample_rate": 250.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
