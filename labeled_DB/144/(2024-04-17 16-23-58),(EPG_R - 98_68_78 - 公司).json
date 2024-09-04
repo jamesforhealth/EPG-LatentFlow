@@ -6799,6 +6799,7 @@
         1279,
         1359,
         1436,
+        1512,
         1591,
         1668,
         1745,
@@ -6866,5 +6867,7 @@
         3223
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
