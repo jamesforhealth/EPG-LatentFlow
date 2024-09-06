@@ -6140,6 +6140,7 @@
         132,
         201,
         269,
+        336,
         404,
         474,
         541,
@@ -6194,5 +6195,7 @@
         2853
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
