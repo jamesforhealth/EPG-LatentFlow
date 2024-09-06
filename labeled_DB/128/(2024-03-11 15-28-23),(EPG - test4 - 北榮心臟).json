@@ -15778,6 +15778,7 @@
         1218,
         1418,
         1617,
+        1800,
         1993,
         2186,
         2382,
@@ -15847,5 +15848,7 @@
         7647
     ],
     "sample_rate": 250.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
