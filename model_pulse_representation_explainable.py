@@ -357,6 +357,8 @@ def train_step(model, optimizer, batch, mode, device, loss_fn):
         # wear_consistency_loss = loss_fn(z_wear, z_wear.mean(dim=0, keepdim=True).expand_as(z_wear))
         # wear_consistency_loss.backward()
         # optimizer.step()
+    
+    
 
         # 再训练生理编码器和解码器
         optimizer.zero_grad()
@@ -495,8 +497,8 @@ def main():
     model_path = './DisentangledAutoencoder_pretrain_wearing2.pth' #physio_dim=15, wear_dim=10
     model_path = './DisentangledAutoencoder_pretrain_wearing_test.pth' #physio_dim=15, wear_dim=10
     # model_path = './DisentangledAutoencoder3.pth'
-    if os.path.exists(model_path): 
-        model.load_state_dict(torch.load(model_path, map_location=device))
+    # if os.path.exists(model_path): 
+    #     model.load_state_dict(torch.load(model_path, map_location=device))
     train(model, train_dataset, val_dataloader, model_path, num_epochs=2000, batch_size=batch_size, device=device)
     encoded_data = predict_encoded_dataset(model, json_files)
     # save_encoded_data(encoded_data, 'latent_vectors_explanable')

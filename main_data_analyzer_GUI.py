@@ -300,6 +300,7 @@ class MainWindow(QMainWindow):
         self.db_combo_box = QComboBox()
         self.db_combo_box.addItem("DB")
         self.db_combo_box.addItem("labeled_DB")
+        self.db_combo_box.addItem("wearing_consistency")
         self.db_combo_box.currentIndexChanged.connect(self.update_file_tree)
 
         file_tree_layout = QVBoxLayout()
@@ -366,6 +367,7 @@ class MainWindow(QMainWindow):
         checkbox_layout.addWidget(self.checkbox_y_points)
         checkbox_layout.addWidget(self.checkbox_z_points)
         checkbox_layout.addWidget(self.checkbox_a_points)
+        checkbox_layout.addWidget(self.checkbox_b_points)
         checkbox_layout.addWidget(self.checkbox_c_points)
         checkbox_layout.addWidget(self.resample_noise_button)
 
