@@ -4126,9 +4126,11 @@
         1915
     ],
     "b_points": [
+        42,
         111,
         177,
         243,
+        309,
         376,
         444,
         513,
@@ -4181,5 +4183,7 @@
         1864
     ],
     "sample_rate": 100.0,
-    "anomaly_list": []
+    "anomaly_list": [],
+    "dataType": "EPG",
+    "macaddress": ""
 }
