@@ -27,7 +27,7 @@ import h5py
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from datautils import save_encoded_data, predict_latent_vector_list, predict_encoded_dataset
-
+from preprocessing import split_json_files
 def get_current_model_device():
     target_len = 100
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -464,10 +464,7 @@ def train(model, train_dataset, val_dataloader, model_path, num_epochs, batch_si
             torch.save(model.state_dict(), model_path)
             print(f"New best model saved with validation loss: {val_loss:.10f}")
 
-def split_json_files(json_files, train_ratio=0.9):
-    random.shuffle(json_files)
-    split_point = int(len(json_files) * train_ratio)
-    return json_files[:split_point], json_files[split_point:]
+
 def main():
     data_folder = 'labeled_DB'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

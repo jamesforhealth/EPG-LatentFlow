@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QSlider, QFileDialog, QTabWidget, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QSlider, QFileDialog, QTabWidget, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip, QAction
 from PyQt5.QtGui import QMouseEvent, QColor
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 import pyqtgraph as pg
@@ -12,6 +12,7 @@ from influxDB_downloader import get_user_sessions, get_session_data, format_time
 from model_find_peaks import detect_peaks_from_signal
 from model_pulse_representation import EPGBaselinePulseAutoencoder#, predict_reconstructed_signal
 from model_pulse_representation_explainable import DisentangledAutoencoder, predict_reconstructed_signal, predict_corrected_reconstructed_signal
+#from model_wearing_consistency_pretrained import predict_corrected_reconstructed_signal#, predict_reconstructed_signal
 import torch
 import scipy
 # from model_wearing_anomaly_detection import predict_reconstructed_signal, predict_reconstructed_signal2, predict_reconstructed_signal_pulse
@@ -228,13 +229,14 @@ class MainWindow(QMainWindow):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.baseline_model3 = EPGBaselinePulseAutoencoder(100).to(self.device)
         model_path = 'pulse_interpolate_autoencoder.pth'
+        model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
         self.baseline_model3.load_state_dict(torch.load(model_path))
         self.baseline_model3.eval()
 
-        self.disentangled_model = DisentangledAutoencoder(target_len=100, physio_dim=15, wear_dim=10).to(self.device)
-        model_path = './DisentangledAutoencoder_pretrain_wearing2.pth'
-        self.disentangled_model.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.disentangled_model.eval()
+        # self.disentangled_model = DisentangledAutoencoder(target_len=100, physio_dim=15, wear_dim=10).to(self.device)
+        # model_path = './DisentangledAutoencoder_pretrain_wearing2.pth'
+        # self.disentangled_model.load_state_dict(torch.load(model_path, map_location=self.device))
+        # self.disentangled_model.eval()
 
         self.setWindowTitle("Waveform Labeling")
         self.resize(1200, 800)
@@ -506,6 +508,22 @@ class MainWindow(QMainWindow):
 
         self.floating_marker = pg.ScatterPlotItem(size=10, pen=pg.mkPen(color=(255, 0, 0), width=2), brush=pg.mkBrush(255, 255, 255, 120))
         self.plot_widget.addItem(self.floating_marker)
+
+        # 添加菜单栏
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu('文件')
+
+        # 添加 "选择文件夹" 动作
+        select_folder_action = QAction('选择文件夹', self)
+        select_folder_action.triggered.connect(self.select_folder)
+        file_menu.addAction(select_folder_action)
+
+    def select_folder(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ShowDirsOnly
+        folder = QFileDialog.getExistingDirectory(self, "选择数据文件夹", options=options)
+        if folder:
+            self.load_folder(folder)
 
     def update_amplitude(self):
         amplitude_factor = self.amplitude_slider.value() / 100
@@ -1272,6 +1290,12 @@ class MainWindow(QMainWindow):
         for item in self.plot_widget.listDataItems():
             if isinstance(item, pg.PlotDataItem):
                 self.legend.addItem(item, item.name())
+
+    def load_folder(self, folder):
+        self.current_folder = folder
+        # 清空文件树
+        self.file_tree_widget.clear()        # 构建新的文件树
+        self.populate_tree(folder, self.file_tree_widget.invisibleRootItem())
 
 
 if __name__ == '__main__':

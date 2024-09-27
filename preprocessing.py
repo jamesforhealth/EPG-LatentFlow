@@ -6,6 +6,10 @@ import json
 import scipy
 import random
 from torch.utils.data import Dataset
+def split_json_files(json_files, train_ratio=0.9):
+    random.shuffle(json_files)
+    split_point = int(len(json_files) * train_ratio)
+    return json_files[:split_point], json_files[split_point:]
 # def get_json_files(data_folder):
 #     json_files = []
 #     for root, dirs, files in os.walk(data_folder):

@@ -494,10 +494,10 @@ def evaluate_model(model, dataloader, criterion, device):
     total_loss /= len(dataloader)
     return total_loss
 
-def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, epochs=1000, save_interval=1):
+def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, model_path, epochs=1000, save_interval=1):
     model.train()
     min_loss = float('inf')
-    model_path = 'pulse_interpolate_autoencoder.pth'
+    # model_path = 'pulse_interpolate_autoencoder.pth'
     # model_path = 'pulse_interpolate_autoencoder_test.pth' #Epoch [1/2000], Training Loss: 0.4247541058, Testing Loss: 0.1003478393
     # model_path = 'pulse_interpolate_autoencoder2.pth'
     # model_path = 'pulse_interpolate_autoencoder_VAE.pth' #Epoch [1/2000], Training Loss: 12.8088734311, Testing Loss: 4.2140154323
@@ -533,11 +533,11 @@ def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, crite
         # Save model parameters if test loss decreases
         if save_interval != 0 and (epoch + 1) % save_interval == 0 and test_loss < min_loss * 0.95:
             min_loss = test_loss
-            # torch.save(model.state_dict(), model_path)
+            torch.save(model.state_dict(), model_path)
             print(f"Saved model parameters at epoch {epoch+1}, Testing Loss: {test_loss:.10f}")
 
 class EPGBaselinePulseAutoencoder(nn.Module):
-    def __init__(self, target_len, hidden_dim=50, latent_dim=30, dropout=0.5):
+    def __init__(self, target_len, hidden_dim=20, latent_dim=30, dropout=0.8):#, latent_dim=30, dropout=0.5):
         super().__init__()
         self.enc = nn.Sequential(
             nn.Linear(target_len, hidden_dim),
@@ -602,6 +602,7 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
     model_path = 'pulse_interpolate_autoencoder2.pth' # target_len = 200
     model_path = 'pulse_interpolate_autoencoder.pth' # target_len = 100
     model_path = 'pulse_interpolate_autoencoder_test.pth' # target_len = 100 
+    model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
     model = EPGBaselinePulseAutoencoder(target_len).to(device)
     model.load_state_dict(torch.load(model_path))
     model.eval()
@@ -759,7 +760,9 @@ def main():
     #計算訓練資料跟測試資料的長度
     print(f'train_data_len:{len(train_data)}, test_data_len:{len(test_data)}')
     # 初始化模型和優化器
+    model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
     model = EPGBaselinePulseAutoencoder(target_len=target_len).to(device)
+    
     # model = EPGBaselinePulseVAE(target_len=200).to(device)
     # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
     criterion = nn.L1Loss()  #Use L1Loss to train first
@@ -767,17 +770,17 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5) #Adam
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Total number of model parameters: {trainable_params}, model:{model}') 
-    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device)
-    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion2, device)
+    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, model_path)
+    train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion2, device, model_path)
 
-    model_path = 'pulse_interpolate_autoencoder_test.pth'
+    
     model.load_state_dict(torch.load(model_path))
     # model_path = 'pulse_interpolate_autoencoder.pth'
     # model = EPGBaselinePulseAutoencoder(100).to(device)
     # model.load_state_dict(torch.load(model_path))
     
     encoded_data = predict_encoded_dataset(model, json_files)
-    save_encoded_data(encoded_data, 'latent_vectors_0727')
+    save_encoded_data(encoded_data, 'latent_vectors_0909')
 
     # 分析差异向量
     # pca, n_components_95, all_diff_vectors = analyze_diff_vectors(encoded_data)
