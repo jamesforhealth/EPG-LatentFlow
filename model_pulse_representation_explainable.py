@@ -74,7 +74,7 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
             pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(device)
 
             with torch.no_grad():
-                reconstructed_pulse, latent_vector = model(pulse_tensor)
+                reconstructed_pulse, z_physio, z_wear = model(pulse_tensor)
                 reconstructed_pulse = reconstructed_pulse.squeeze().cpu().numpy()
                 # physio_vector = physio_vector.squeeze().cpu().numpy()
                 # wear_vector = wear_vector.squeeze().cpu().numpy()
@@ -152,8 +152,9 @@ def predict_corrected_reconstructed_signal(signal, sample_rate, peaks):
             pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(device)
 
             with torch.no_grad():
-                _, latent_vector = model(pulse_tensor)
-                latent_vector[:, :10] = wearing_mean
+                _, z_phisio, z_wear = model(pulse_tensor)
+                latent_vector = torch.cat([z_phisio, z_wear], dim=1)
+                latent_vector[:, 10:] = wearing_mean
                 reconstructed_pulse = model.dec(latent_vector)
                 reconstructed_pulse = reconstructed_pulse.squeeze ().cpu().numpy()
 
@@ -260,7 +261,7 @@ class DisentangledMultiResAutoencoder(nn.Module):
         return self.wear_enc(x)
     
 class DisentangledAutoencoder(nn.Module):
-    def __init__(self, target_len, hidden_dim=50, physio_dim=15, wear_dim=10):
+    def __init__(self, target_len, hidden_dim=50, physio_dim=10, wear_dim=10):
         super().__init__()
         self.physio_dim = physio_dim
         self.wear_dim = wear_dim
@@ -298,7 +299,7 @@ class DisentangledAutoencoder(nn.Module):
         # print(f'z.shape: {z.shape}')
         pred = self.dec(z)
         # input(f'pred.shape: {pred.shape}')
-        return pred, z#z_physio, z_wear
+        return pred, z_physio, z_wear
 
     def encode_physio(self, x):
         return self.physio_enc(x)
@@ -310,35 +311,31 @@ def pretrain_wear_enc(model, dataset, batch_size, device, loss_fn, optimizer):
     model.train()
     total_loss = 0
     num_batches = 0
-    
-    for measurement_id in dataset.measurement_indices:
-        measurement_data = dataset.get_measurement(measurement_id)
-        
-        # Use sliding window approach
-        for i in range(len(measurement_data) - batch_size + 1):
-            batch = torch.stack(measurement_data[i:i+batch_size])
-            batch = batch.to(device)
-            
-            optimizer.zero_grad()
-            for param in model.wear_enc.parameters():
-                param.requires_grad = True
-            for param in model.physio_enc.parameters():
-                param.requires_grad = False
-            for param in model.dec.parameters():
-                param.requires_grad = False
-            
-            _, latent_vector = model(batch)
-            #z_wear 是 latent_vector的前10個維度的向量
-            z_wear = latent_vector[:, :model.wear_dim]
-            wear_consistency_loss = loss_fn(z_wear, z_wear.mean(dim=0, keepdim=True).expand_as(z_wear))
-            wear_consistency_loss.backward()
-            optimizer.step()
-            
-            total_loss += wear_consistency_loss.item()
-            # input(f'i:{i},wear_consistency_loss.item(): {wear_consistency_loss.item()}')
-            num_batches += 1
-    # print(f'Pretraining wear encoder num_batches: {num_batches}, total_loss: {total_loss}')
-    return total_loss / num_batches
+
+    optimizer.zero_grad()
+    # 只训练 wear_enc
+    optimizer_wear = torch.optim.Adam(model.wear_enc.parameters(), lr=1e-4)
+
+    measurement_ids = list(dataset.measurement_indices.keys())
+    random.shuffle(measurement_ids)
+
+    for measurement_id in measurement_ids:
+        pulses = dataset.get_measurement(measurement_id)
+        if len(pulses) < batch_size:
+            continue  # 跳过数据不足的测量
+        batch = torch.stack(pulses).to(device)
+
+        optimizer_wear.zero_grad()
+        _, _, z_wear = model(batch)
+        z_wear_mean = z_wear.mean(dim=0, keepdim=True)
+        wear_consistency_loss = loss_fn(z_wear, z_wear_mean.expand_as(z_wear))
+        wear_consistency_loss.backward()
+        optimizer_wear.step()
+
+        total_loss += wear_consistency_loss.item()
+        num_batches += 1
+
+    return total_loss / num_batches if num_batches > 0 else 0
 
 def train_step(model, optimizer, batch, mode, device, loss_fn):
     optimizer.zero_grad()
@@ -353,7 +350,7 @@ def train_step(model, optimizer, batch, mode, device, loss_fn):
         # for param in model.dec.parameters():
         #     param.requires_grad = False
         
-        # _, latent_vector = model(batch)
+        # _, z_physio, z_wear = model(batch)
         # wear_consistency_loss = loss_fn(z_wear, z_wear.mean(dim=0, keepdim=True).expand_as(z_wear))
         # wear_consistency_loss.backward()
         # optimizer.step()
@@ -369,7 +366,7 @@ def train_step(model, optimizer, batch, mode, device, loss_fn):
         # for param in model.dec.parameters():
         #     param.requires_grad = True
         
-        preds, latent_vector = model(batch)
+        preds, z_physio, z_wear = model(batch)
         recon_loss = loss_fn(preds, batch)
         recon_loss.backward()
         optimizer.step()
@@ -382,7 +379,7 @@ def train_step(model, optimizer, batch, mode, device, loss_fn):
             param.requires_grad = True
         # for param in model.parameters():
         #     param.requires_grad = True
-        preds, latent_vector = model(batch)
+        preds, z_physio, z_wear = model(batch)
         recon_loss = loss_fn(preds, batch)
         recon_loss.backward()
         optimizer.step()
@@ -428,7 +425,7 @@ def validate(model, dataloader, device, loss_fn):
     with torch.no_grad():
         for batch in dataloader:
             batch = batch.to(device)
-            preds,latent_vector = model(batch)
+            preds, z_physio, z_wear = model(batch)
             loss = loss_fn(preds, batch)
             total_loss += loss.item()
             num_batches += 1
@@ -441,7 +438,7 @@ def train(model, train_dataset, val_dataloader, model_path, num_epochs, batch_si
     
 
     print("Pretraining wear_enc...")
-    for epoch in range(8):  # You can adjust the number of pretraining epochs
+    for epoch in range(20):  # You can adjust the number of pretraining epochs
         pretrain_loss = pretrain_wear_enc(model, train_dataset, batch_size, device, loss_fn, optimizer)
         print(f"Pretrain Epoch {epoch}, Loss: {pretrain_loss:.10f}")
     input("Pretrained wear_enc...")
@@ -492,7 +489,7 @@ def main():
     model_path = './DisentangledAutoencoder2.pth'  #DisentangledAutoencoder without TICP data
     model_path = './DisentangledAutoencoder_pretrain_wearing.pth'
     model_path = './DisentangledAutoencoder_pretrain_wearing2.pth' #physio_dim=15, wear_dim=10
-    model_path = './DisentangledAutoencoder_pretrain_wearing_test.pth' #physio_dim=15, wear_dim=10
+    model_path = './DisentangledAutoencoder_pretrain_wearing_test.pth' #physio_dim=10, wear_dim=10
     # model_path = './DisentangledAutoencoder3.pth'
     # if os.path.exists(model_path): 
     #     model.load_state_dict(torch.load(model_path, map_location=device))
