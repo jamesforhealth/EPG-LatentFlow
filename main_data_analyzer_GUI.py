@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QSlider, QFileDialog, QTabWidget, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip, QAction
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QSlider, QFileDialog, QTabWidget, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip, QAction, QMenu
 from PyQt5.QtGui import QMouseEvent, QColor
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 import pyqtgraph as pg
@@ -284,6 +284,8 @@ class MainWindow(QMainWindow):
         self.file_tree_widget = QTreeWidget()
         self.file_tree_widget.setHeaderLabels(["DB Files"])
         self.file_tree_widget.itemClicked.connect(self.load_selected_file)
+        self.file_tree_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.file_tree_widget.customContextMenuRequested.connect(self.open_file_tree_context_menu)
 
         self.user_id_edit = QLineEdit()
         self.user_id_edit.setPlaceholderText("Enter User ID")
@@ -296,9 +298,11 @@ class MainWindow(QMainWindow):
         user_id_layout.addWidget(self.user_id_edit)
         user_id_layout.addWidget(self.reload_button)
 
+        self.current_base_folder = None  # 初始化当前基础文件夹
         self.db_folder = "DB"
         self.labeled_db_folder = "labeled_DB"
-
+        self.wearing_consistency_folder = "wearing_consistency"
+        
         self.db_combo_box = QComboBox()
         self.db_combo_box.addItem("DB")
         self.db_combo_box.addItem("labeled_DB")
@@ -523,7 +527,31 @@ class MainWindow(QMainWindow):
         options |= QFileDialog.ShowDirsOnly
         folder = QFileDialog.getExistingDirectory(self, "选择数据文件夹", options=options)
         if folder:
+            self.current_base_folder = folder  # 更新当前基础文件夹
             self.load_folder(folder)
+
+    def open_file_tree_context_menu(self, position):
+        item = self.file_tree_widget.itemAt(position)
+        if item is not None:
+            menu = QMenu()
+            if item.childCount() == 0:  # 如果是文件
+                delete_action = QAction("删除文件", self)
+                delete_action.triggered.connect(lambda: self.delete_file(item))
+                menu.addAction(delete_action)
+            menu.exec_(self.file_tree_widget.viewport().mapToGlobal(position))
+
+    def delete_file(self, item):
+        if item.childCount() == 0:  # 仅对文件操作
+            file_path = self.get_file_path(item)
+            confirm = QMessageBox.question(self, "删除文件", f"您确定要删除 '{file_path}' 吗？", QMessageBox.Yes | QMessageBox.No)
+            if confirm == QMessageBox.Yes:
+                try:
+                    os.remove(file_path)
+                    parent = item.parent() or self.file_tree_widget.invisibleRootItem()
+                    parent.removeChild(item)
+                    QMessageBox.information(self, "文件已删除", f"文件 '{file_path}' 已被删除。")
+                except Exception as e:
+                    QMessageBox.warning(self, "错误", f"无法删除文件：{e}")
 
     def update_amplitude(self):
         amplitude_factor = self.amplitude_slider.value() / 100
@@ -842,9 +870,15 @@ class MainWindow(QMainWindow):
 
     def update_file_tree(self, index):
         if index == 0:
+            self.current_base_folder = self.db_folder
             self.load_db_files(self.db_folder)
-        else:
+        elif index == 1:
+            self.current_base_folder = self.labeled_db_folder
             self.load_db_files(self.labeled_db_folder)
+        elif index == 2:
+            self.current_base_folder = self.wearing_consistency_folder
+            self.load_db_files(self.wearing_consistency_folder)
+
 
     def load_db_files(self, db_folder = "DB"):
         
@@ -878,8 +912,8 @@ class MainWindow(QMainWindow):
             else:  # labeled_DB
                 self.current_relative_path = os.path.relpath(file_path, "labeled_DB")
                 self.load_labeled_data(data)
-                self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-                self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+                # self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+                # self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
             self.selected_points.clear()  # 清空Selected Point
             self.update_selected_points_label()  # 更新Selected Point的顯示
             self.update_points_edit()
@@ -953,8 +987,9 @@ class MainWindow(QMainWindow):
             self.find_peaks_and_valleys(self.smoothed_data, int(self.sample_rate))#, 0.3, 0.9, 0.3, 0.03, 0.03, "on_peak", 0.06)
             self.update_latent_vector()
             # self.reconstructed_signal = predict_transformer_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-            self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-            self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            # self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            # self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+
             # self.reconstructed_signal = reconstruct_pulse_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
             # self.reconstructed_signal = predict_reconstructed_signal2(self.smoothed_data, int(self.sample_rate)) #predict_reconstructed_signal_pulse(self.smoothed_data, int(self.sample_rate), self.x_points)
             # self.reconstructed_signal = predict_LSTM_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
@@ -1020,10 +1055,7 @@ class MainWindow(QMainWindow):
             item = item.parent()
             path.append(item.text(0))
         path.reverse()
-        if self.db_combo_box.currentIndex() == 0:  # DB
-            return os.path.join(self.db_folder, *path)
-        else:  # labeled_DB
-            return os.path.join(self.labeled_db_folder, *path)
+        return os.path.join(self.current_base_folder, *path)
         
     def find_peaks_and_valleys(self, data, sample_rate):#, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
         # peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
