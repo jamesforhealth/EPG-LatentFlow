@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.baseline_model3 = EPGBaselinePulseAutoencoder(100).to(self.device)
         model_path = 'pulse_interpolate_autoencoder.pth'
-        self.baseline_model3.load_state_dict(torch.load(model_path))
+        self.baseline_model3.load_state_dict(torch.load(model_path,map_location = self.device))
         self.baseline_model3.eval()
 
         self.disentangled_model = DisentangledAutoencoder(target_len=100, physio_dim=15, wear_dim=10).to(self.device)

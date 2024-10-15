@@ -10,7 +10,8 @@ def sanitize_filename(filename):
 
 def format_timestamp(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H-%M-%S')
-base_url = "https://mrqhn4tot3.execute-api.ap-northeast-1.amazonaws.com/api/database/v1/"
+#base_url = "https://mrqhn4tot3.execute-api.ap-northeast-1.amazonaws.com/api/database/v1/"
+base_url = "http://192.168.1.109:8000/v1"
 # 獲取所有用戶列表
 def get_all_users():
     url = f"{base_url}/list-users"
