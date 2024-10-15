@@ -57,7 +57,7 @@ def main():
     model.to(device)
     
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path,map_location = self.device))
         print("Model loaded successfully.")
     else:
         print("Model file not found.")
