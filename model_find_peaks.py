@@ -541,7 +541,7 @@ def detect_peaks_in_window(signal, sample_rate, window_size=200, model_path='pea
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = PeakDetectionDCNN(window_size, num_classes=1).to(device)
-        model.load_state_dict(torch.load(model_path, map_location=device))
+        model.load_state_dict(torch.load(model_path,map_location = self.device))
         
         all_window_peaks = []
         num_samples = len(signal)
@@ -697,7 +697,7 @@ def detect_peaks_from_json(json_file, model_path='peak_detection_model3.pt'):
         window_size = 200
         num_classes = 1
         model = PeakDetectionDCNN(window_size, num_classes).to(device)
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=device))
 
         predicted_peaks = predict_peaks_json(model, device, json_file)
         return predicted_peaks
