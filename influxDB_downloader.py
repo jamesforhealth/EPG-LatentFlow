@@ -75,7 +75,10 @@ def main():
                     
                     note_lower = sessions["session_data"]["session_notes"][idx].lower()
                     keywords = ["ICP", "TCCP", "TICP"]
-                    data_type = 'TICP' if any(keyword.lower() in note_lower for keyword in keywords) else 'EPG'
+                    if 'ekg' in note_lower:
+                        data_type = 'EKG'
+                    else:
+                        data_type = 'TICP' if any(keyword.lower() in note_lower for keyword in keywords) else 'EPG'
                     
                     session_info = {
                         "user_id": user_id,

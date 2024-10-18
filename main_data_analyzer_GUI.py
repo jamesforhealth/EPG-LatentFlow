@@ -259,6 +259,7 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
+        self.w_points = []
         self.dataType = ""
         self.macaddress = ""
         self.anomaly_list = []
@@ -286,6 +287,8 @@ class MainWindow(QMainWindow):
 
         self.db_folder = "DB"
         self.labeled_db_folder = "labeled_DB"
+        self.ekgepg_db_folder = "EKGEPG_DB"
+       
 
         file_count = self.count_files_in_directory(self.db_folder, ".json")
         labeled_file_count = self.count_files_in_directory(self.labeled_db_folder, ".json")
@@ -300,6 +303,7 @@ class MainWindow(QMainWindow):
         self.db_combo_box = QComboBox()
         self.db_combo_box.addItem("DB")
         self.db_combo_box.addItem("labeled_DB")
+        self.db_combo_box.addItem("EKGEPG_DB")
         self.db_combo_box.currentIndexChanged.connect(self.update_file_tree)
 
         file_tree_layout = QVBoxLayout()
@@ -349,6 +353,10 @@ class MainWindow(QMainWindow):
         self.checkbox_c_points = QCheckBox("C Points")
         self.checkbox_c_points.setChecked(False)
         self.checkbox_c_points.stateChanged.connect(self.plot_data)
+        
+        self.checkbox_w_points = QCheckBox("W Points")
+        self.checkbox_w_points.setChecked(False)
+        self.checkbox_w_points.stateChanged.connect(self.plot_data)
 
         checkbox_layout = QVBoxLayout()
         checkbox_layout.addWidget(self.checkbox_raw_data)
@@ -361,6 +369,7 @@ class MainWindow(QMainWindow):
         checkbox_layout.addWidget(self.checkbox_a_points)
         checkbox_layout.addWidget(self.checkbox_b_points)
         checkbox_layout.addWidget(self.checkbox_c_points)
+        checkbox_layout.addWidget(self.checkbox_w_points)
         checkbox_layout.addWidget(self.resample_noise_button)
 
         self.x_points_edit = QLineEdit()
@@ -386,6 +395,10 @@ class MainWindow(QMainWindow):
         self.c_points_edit = QLineEdit()
         self.c_points_edit.setPlaceholderText("C Points")
         self.c_points_edit.textChanged.connect(self.update_c_points_from_edit)
+        
+        self.w_points_edit = QLineEdit()
+        self.w_points_edit.setPlaceholderText("C Points")
+        self.w_points_edit.textChanged.connect(self.update_w_points_from_edit)
 
         points_layout = QVBoxLayout()
 
@@ -451,6 +464,8 @@ class MainWindow(QMainWindow):
         points_layout.addWidget(self.b_points_edit)
         points_layout.addWidget(QLabel("C Points:"))
         points_layout.addWidget(self.c_points_edit)
+        points_layout.addWidget(QLabel("W Points:"))
+        points_layout.addWidget(self.w_points_edit)
 
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save_labeled_data)
@@ -675,6 +690,8 @@ class MainWindow(QMainWindow):
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"B Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                     elif x in self.c_points:
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"C Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
+                    elif x in self.w_points:
+                        QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"C Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                     else:
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"Signal\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                 else:
@@ -743,6 +760,8 @@ class MainWindow(QMainWindow):
             self.label_selected_points('b')
         elif event.key() == Qt.Key_C:
             self.label_selected_points('c')
+        elif event.key() == Qt.Key_W:
+            self.label_selected_points('w')
         elif event.key() == Qt.Key_Space:
             self.remove_selected_points()
 
@@ -767,6 +786,9 @@ class MainWindow(QMainWindow):
             elif label == 'c':
                 self.c_points.append(point)
                 self.c_points.sort()
+            elif label == 'w':
+                self.w_points.append(point)
+                self.w_points.sort()
         self.selected_points.clear()
         self.update_selected_points_label()
         self.update_points_edit()
@@ -786,6 +808,8 @@ class MainWindow(QMainWindow):
                 self.b_points.remove(point)
             elif point in self.c_points:
                 self.c_points.remove(point)
+            elif point in self.w_points:
+                self.w_points.remove(point)
 
 
     def remove_selected_points(self):
@@ -814,6 +838,7 @@ class MainWindow(QMainWindow):
             "a_points": self.a_points,
             "b_points": self.b_points,
             "c_points": self.c_points,
+            "w_points": self.w_points,
             "sample_rate": self.sample_rate,
             "anomaly_list": self.anomaly_list,
             "dataType": self.dataType,
@@ -849,8 +874,10 @@ class MainWindow(QMainWindow):
     def update_file_tree(self, index):
         if index == 0:
             self.load_db_files(self.db_folder)
-        else:
+        elif index == 1:
             self.load_db_files(self.labeled_db_folder)
+        else:
+            self.load_db_files(self.ekgepg_db_folder)
 
     def load_db_files(self, db_folder = "DB"):
         
@@ -874,15 +901,18 @@ class MainWindow(QMainWindow):
             self.clear_data()
             file_path = self.get_file_path(item)
             
-            with open(file_path, 'r') as file:
+            with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
             
             if self.db_combo_box.currentIndex() == 0:  # DB
                 self.current_relative_path = os.path.relpath(file_path, "DB")
                 self.anomaly_list = []
                 self.process_data(data)
-            else:  # labeled_DB
+            elif self.db_combo_box.currentIndex() == 1:  # labeled_DB
                 self.current_relative_path = os.path.relpath(file_path, "labeled_DB")
+                self.load_labeled_data(data)
+            else:
+                self.current_relative_path = os.path.relpath(file_path, "EKGEPG_DB")
                 self.load_labeled_data(data)
 
             self.selected_points.clear()  # 清空Selected Point
@@ -923,6 +953,7 @@ class MainWindow(QMainWindow):
         self.a_points = data['a_points'] if 'a_points' in data else []
         self.b_points = data['b_points'] if 'b_points' in data else []
         self.c_points = data['c_points'] if 'c_points' in data else []
+        self.w_points = data['w_points'] if 'w_points' in data else []
         self.macaddress = data['macaddress'] if 'macaddress' in data else ""
         self.dataType = data['dataType'] if 'dataType' in data else "EPG"
         self.anomaly_list = data['anomaly_list'] if 'anomaly_list' in data else []
@@ -943,6 +974,7 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
+        self.w_points = []
         self.dataType = ""
         self.macaddress = ""
         
@@ -1033,8 +1065,11 @@ class MainWindow(QMainWindow):
         path.reverse()
         if self.db_combo_box.currentIndex() == 0:  # DB
             return os.path.join(self.db_folder, *path)
-        else:  # labeled_DB
+        elif self.db_combo_box.currentIndex() == 1:  # labeled_DB
             return os.path.join(self.labeled_db_folder, *path)
+        else:
+            return os.path.join(self.ekgepg_db_folder, *path)
+            
         
     def find_peaks_and_valleys(self, data, sample_rate):#, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
         # peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
@@ -1077,6 +1112,7 @@ class MainWindow(QMainWindow):
             self.a_points = []
             self.b_points = []
             self.c_points = []
+            self.w_points = []
 
             results = find_epg_points(self.smoothed_data, self.x_points, self.y_points, self.sample_rate)
             for result in results:
@@ -1091,6 +1127,7 @@ class MainWindow(QMainWindow):
                         self.b_points.append(b)
                     if c != -1:
                         self.c_points.append(c)
+                    
 
             self.update_points_edit()
             self.plot_data()
@@ -1105,6 +1142,7 @@ class MainWindow(QMainWindow):
         self.a_points_edit.setText(', '.join(map(str, self.a_points)))
         self.b_points_edit.setText(', '.join(map(str, self.b_points)))
         self.c_points_edit.setText(', '.join(map(str, self.c_points)))
+        self.w_points_edit.setText(', '.join(map(str, self.w_points)))
             
     def update_x_points_from_edit(self):
         try:
@@ -1147,6 +1185,13 @@ class MainWindow(QMainWindow):
             self.plot_data()
         except ValueError as e:
             print(f'ValueError: {e}')
+            
+    def update_w_points_from_edit(self):
+        try:
+            self.w_points = [int(w) for w in self.w_points_edit.text().split(',') if w.strip()]
+            self.plot_data()
+        except ValueError as e:
+            print(f'ValueError: {e}')
 
     def label_anomaly(self):
         if self.selected_start_peak_idx is not None and self.selected_end_peak_idx is not None:
@@ -1176,6 +1221,7 @@ class MainWindow(QMainWindow):
             self.a_points = [a for a in self.a_points if a < start_x or a > end_x]
             self.b_points = [b for b in self.b_points if b < start_x or b > end_x]
             self.c_points = [c for c in self.c_points if c < start_x or c > end_x]
+            self.w_points = [w for w in self.w_points if w < start_x or w > end_x]
 
             self.update_points_edit()
 
@@ -1291,6 +1337,10 @@ class MainWindow(QMainWindow):
         if self.checkbox_c_points.isChecked():
             c_points_in_range = [i for i in self.c_points if 0 <= i < len(self.smoothed_data)]
             self.plot_widget.plot(c_points_in_range, [self.smoothed_data[i] for i in c_points_in_range], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=15, name='C Points')
+            
+        if self.checkbox_w_points.isChecked():
+            w_points_in_range = [i for i in self.w_points if 0 <= i < len(self.smoothed_data)]
+            self.plot_widget.plot(w_points_in_range, [self.smoothed_data[i] for i in w_points_in_range], pen=None, symbol='o', symbolBrush=(255, 127, 80), symbolSize=15, name='W Points')
 
         self.legend.clear()
         for item in self.plot_widget.listDataItems():
