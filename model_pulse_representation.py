@@ -557,6 +557,9 @@ class EPGBaselinePulseAutoencoder(nn.Module):
         pred = self.dec(z)
         return pred, z
     
+    def encode(self, x):
+        return self.enc(x)
+    
 
 class EPGBaselinePulseVAE(nn.Module):
     def __init__(self, target_len, hidden_dim=50, latent_dim=30):
