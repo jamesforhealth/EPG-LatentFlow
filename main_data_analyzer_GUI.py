@@ -195,7 +195,8 @@ def find_epg_points(input_data, peaks, valleys, sample_rate):
 def gaussian_smooth(input, window_size, sigma):
     half_window = window_size // 2
     output = np.zeros_like(input)
-    weights = np.zeros(window_size)
+    # weights = np.zeros(window_size)
+    weights = np.zeros(2 * half_window + 1)
     weight_sum = 0
 
     # Calculate Gaussian weights
