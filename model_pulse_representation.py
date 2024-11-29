@@ -507,6 +507,10 @@ def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, crite
         model.load_state_dict(torch.load(model_path))
         print(f"Loaded model parameters from {model_path}")
 
+    #Compute init loss
+    init_loss = evaluate_model(model, test_dataloader, criterion, device)
+    print(f"Init Testing Loss: {init_loss:.10f}")
+
     for epoch in range(epochs):
         total_loss = 0
         for batch in train_dataloader:
@@ -537,7 +541,7 @@ def train_autoencoder(model, train_dataloader, test_dataloader, optimizer, crite
             print(f"Saved model parameters at epoch {epoch+1}, Testing Loss: {test_loss:.10f}")
 
 class EPGBaselinePulseAutoencoder(nn.Module):
-    def __init__(self, target_len, hidden_dim=20, latent_dim=30, dropout=0.8):#, latent_dim=30, dropout=0.5):
+    def __init__(self, target_len, hidden_dim=30, latent_dim=30, dropout=0.9):#, latent_dim=30, dropout=0.5):
         super().__init__()
         self.enc = nn.Sequential(
             nn.Linear(target_len, hidden_dim),
@@ -607,6 +611,9 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
     model_path = 'pulse_interpolate_autoencoder_test.pth' # target_len = 100 
     model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
     model = EPGBaselinePulseAutoencoder(target_len).to(device)
+
+
+    
     model.load_state_dict(torch.load(model_path))
     model.eval()
 
@@ -675,7 +682,7 @@ def predict_reconstructed_signal(signal, sample_rate, peaks):
     original_length = int(len(reconstructed_signal) / resample_ratio)
     reconstructed_signal = scipy.signal.resample(reconstructed_signal, original_length)
 
-    #計算原始訊號跟重構訊號的MAE
+    #計算原始號跟重構訊號的MAE
     mae = np.mean(np.abs(origin_signal - reconstructed_signal))
     print(f'MAE: {mae}')
 
@@ -734,6 +741,362 @@ def encode_pulses(model, json_files, target_len=100, sample_rate=100, device='cu
 #         for path, vectors in encoded_data.items():
 #             print(f'Saving {path}, vectors.shape: {vectors.shape}')
 #             f.create_dataset(path, data=vectors)
+class ImprovedCNNAutoencoder(nn.Module):
+    def __init__(self, latent_dim=20, input_length=128):
+        super().__init__()
+        self.latent_dim = latent_dim
+        
+        # 更平滑的channel progression
+        self.channels = [32, 48, 64, 96]
+        
+        # Encoder
+        self.encoder = nn.Sequential(
+            # Layer 1: 128 -> 64
+            nn.Conv1d(1, self.channels[0], kernel_size=5, stride=1, padding=2),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[0]),
+            nn.MaxPool1d(2),
+            
+            # Layer 2: 64 -> 32
+            nn.Conv1d(self.channels[0], self.channels[1], kernel_size=5, stride=1, padding=2),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[1]),
+            nn.MaxPool1d(2),
+            
+            # Layer 3: 32 -> 16
+            nn.Conv1d(self.channels[1], self.channels[2], kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[2]),
+            nn.MaxPool1d(2),
+            
+            # Layer 4: 16 -> 8
+            nn.Conv1d(self.channels[2], self.channels[3], kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[3]),
+            nn.MaxPool1d(2),
+        )
+        
+        # 計算flatten後的維度
+        self.flatten_dim = self.channels[3] * (input_length // 16)  # 8 = 2^4 (4次下採樣)
+        
+        # 更平滑的latent轉換
+        self.latent_encoder = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(self.flatten_dim, self.flatten_dim // 2),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.flatten_dim // 2),
+            nn.Dropout(0.2),
+            nn.Linear(self.flatten_dim // 2, self.flatten_dim // 4),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.flatten_dim // 4),
+            nn.Linear(self.flatten_dim // 4, latent_dim),
+        )
+        
+        # 同樣平滑的latent解碼
+        self.latent_decoder = nn.Sequential(
+            nn.Linear(latent_dim, self.flatten_dim // 4),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.flatten_dim // 4),
+            nn.Linear(self.flatten_dim // 4, self.flatten_dim // 2),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.flatten_dim // 2),
+            nn.Dropout(0.2),
+            nn.Linear(self.flatten_dim // 2, self.flatten_dim),
+            nn.LeakyReLU(0.2),
+            nn.Unflatten(1, (self.channels[3], input_length // 16))
+        )
+        
+        # Decoder with skip connections
+        self.decoder = nn.Sequential(
+            # Layer 1: 8 -> 16
+            nn.ConvTranspose1d(self.channels[3], self.channels[2], 
+                             kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[2]),
+            
+            # Layer 2: 16 -> 32
+            nn.ConvTranspose1d(self.channels[2], self.channels[1], 
+                             kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[1]),
+            
+            # Layer 3: 32 -> 64
+            nn.ConvTranspose1d(self.channels[1], self.channels[0], 
+                             kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[0]),
+            
+            # Layer 4: 64 -> 128
+            nn.ConvTranspose1d(self.channels[0], self.channels[0] // 2, 
+                             kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.BatchNorm1d(self.channels[0] // 2),
+            
+            # Final layer
+            nn.Conv1d(self.channels[0] // 2, 1, kernel_size=1),
+            nn.Tanh()
+        )
+        
+        # 初始化權重
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, m):
+        if isinstance(m, (nn.Conv1d, nn.ConvTranspose1d, nn.Linear)):
+            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+    
+    def encode(self, x):
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)
+        features = self.encoder(x)
+        return self.latent_encoder(features)
+    
+    def forward(self, x):
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)
+        
+        # Encoding
+        features = self.encoder(x)
+        latent = self.latent_encoder(features)
+        
+        # Decoding
+        decoded = self.latent_decoder(latent)
+        output = self.decoder(decoded)
+        
+        return output.squeeze(1), latent
+
+# 訓練相關的輔助函數
+def get_optimizer(model, lr=1e-3):
+    return torch.optim.AdamW(model.parameters(), 
+                           lr=lr, 
+                           weight_decay=1e-4,
+                           betas=(0.9, 0.999))
+
+def get_scheduler(optimizer, num_epochs):
+    return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 
+                                                     T_max=num_epochs,
+                                                     eta_min=1e-6)
+class CNNAutoencoder(nn.Module):
+    def __init__(self, latent_dim=20): #Default input length=128
+        super().__init__()
+        self.latent_dim = latent_dim
+
+        # Encoder
+        self.encoder = nn.Sequential(
+            # Layer 1: 128 -> 64
+            nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm1d(32),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+            
+            # Layer 2: 64 -> 32
+            nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+            
+            # Layer 3: 32 -> 16
+            nn.Conv1d(64, 128, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+            
+            # Layer 4: 16 -> 8
+            nn.Conv1d(128, 256, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+        )
+
+        # Latent space
+        self.latent_encoder = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(256 * 8, 256),
+            nn.ReLU(),
+            nn.Linear(256, latent_dim),
+            nn.ReLU()
+        )
+
+        self.latent_decoder = nn.Sequential(
+            nn.Linear(latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256 * 8),
+            nn.ReLU(),
+            nn.Unflatten(1, (256, 8))
+        )
+
+        # Decoder
+        self.decoder = nn.Sequential(
+            # Layer 1: 8 -> 16
+            nn.ConvTranspose1d(256, 128, kernel_size=4, stride=2, padding=1),
+            # nn.BatchNorm1d(128),
+            nn.ReLU(),
+            
+            # Layer 2: 16 -> 32
+            nn.ConvTranspose1d(128, 64, kernel_size=4, stride=2, padding=1),
+            # nn.BatchNorm1d(64),
+            nn.ReLU(),
+            
+            # Layer 3: 32 -> 64
+            nn.ConvTranspose1d(64, 32, kernel_size=4, stride=2, padding=1),
+            # nn.BatchNorm1d(32),
+            nn.ReLU(),
+            
+            # Layer 4: 64 -> 128
+            nn.ConvTranspose1d(32, 16, kernel_size=4, stride=2, padding=1),
+            # nn.BatchNorm1d(16),
+            nn.ReLU(),
+            
+            # Final layer
+            nn.Conv1d(16, 1, kernel_size=1),
+            nn.Tanh()  # 或使用 Sigmoid，取決於數據範圍
+        )
+
+    def encode(self, x):
+        """返回 latent_dim 維度的潛在向量"""
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)
+        features = self.encoder(x)
+        return self.latent_encoder(features)
+
+    def forward(self, x):
+        # 輸入處理
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)  # [B, L] -> [B, 1, L]
+        
+        # Encoding
+        features = self.encoder(x)         # [B, 256, 8]
+        latent = self.latent_encoder(features)  # [B, latent_dim]
+        
+        # Decoding
+        decoded = self.latent_decoder(latent)  # [B, 256, 8]
+        output = self.decoder(decoded)     # [B, 1, 128]
+        
+        return output.squeeze(1), latent
+
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm1d(out_channels)
+        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm1d(out_channels)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.bn2(self.conv2(x)))
+        return x
+
+class UNetAutoencoder(nn.Module):
+    def __init__(self, target_len=128, latent_dim=30):
+        super().__init__()
+        self.target_len = target_len
+        self.latent_dim = latent_dim
+        
+        # Encoder path (下採樣)
+        self.enc1 = ConvBlock(1, 64)       # 128 -> 128
+        self.enc2 = ConvBlock(64, 128)     # 64 -> 64
+        self.enc3 = ConvBlock(128, 256)    # 32 -> 32
+        self.enc4 = ConvBlock(256, 512)    # 16 -> 16
+        self.pool = nn.MaxPool1d(2)
+
+        # Latent space encoder (將特徵壓縮到 latent_dim)
+        self.latent_encoder = nn.Sequential(
+            nn.AdaptiveAvgPool1d(8),
+            nn.Flatten(),
+            nn.Linear(512 * 8, latent_dim),
+            nn.ReLU()
+        )
+
+        # Latent space decoder (從 latent_dim 恢復到解碼器需要的維度)
+        self.latent_decoder = nn.Sequential(
+            nn.Linear(latent_dim, 512 * 8),
+            nn.ReLU(),
+            nn.Unflatten(1, (512, 8))
+        )
+
+        # Decoder path (上採樣)
+        self.up4 = nn.ConvTranspose1d(512, 512, kernel_size=4, stride=2, padding=1)  # 8 -> 16
+        self.dec4 = ConvBlock(512 + 512, 256)  # 輸入: 512(up4) + 512(skip) = 1024
+
+        self.up3 = nn.ConvTranspose1d(256, 256, kernel_size=4, stride=2, padding=1)  # 16 -> 32
+        self.dec3 = ConvBlock(256 + 256, 128)  # 輸入: 256(up3) + 256(skip) = 512
+
+        self.up2 = nn.ConvTranspose1d(128, 128, kernel_size=4, stride=2, padding=1)  # 32 -> 64
+        self.dec2 = ConvBlock(128 + 128, 64)   # 輸入: 128(up2) + 128(skip) = 256
+
+        self.up1 = nn.ConvTranspose1d(64, 64, kernel_size=4, stride=2, padding=1)    # 64 -> 128
+        self.dec1 = ConvBlock(64 + 64, 32)     # 輸入: 64(up1) + 64(skip) = 128
+
+        self.final = nn.Conv1d(32, 1, kernel_size=1)
+
+    def encode(self, x):
+        """返回 latent_dim 維度的潛在向量"""
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)
+            
+        # Encoder path
+        e1 = self.enc1(x)
+        p1 = self.pool(e1)
+        e2 = self.enc2(p1)
+        p2 = self.pool(e2)
+        e3 = self.enc3(p2)
+        p3 = self.pool(e3)
+        e4 = self.enc4(p3)
+        p4 = self.pool(e4)      # [B, 512, 8]
+        
+        # Get latent vector
+        latent = self.latent_encoder(p4)  # [B, latent_dim]
+        return latent
+
+    def forward(self, x):
+        # 輸入處理
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)  # [B, L] -> [B, 1, L]
+        
+        # Encoder path
+        e1 = self.enc1(x)        # [B, 64, 128]
+        p1 = self.pool(e1)       # [B, 64, 64]
+        
+        e2 = self.enc2(p1)       # [B, 128, 64]
+        p2 = self.pool(e2)       # [B, 128, 32]
+        
+        e3 = self.enc3(p2)       # [B, 256, 32]
+        p3 = self.pool(e3)       # [B, 256, 16]
+        
+        e4 = self.enc4(p3)       # [B, 512, 16]
+        p4 = self.pool(e4)       # [B, 512, 8]
+
+        # Get latent vector
+        latent = self.latent_encoder(p4)  # [B, latent_dim]
+        # print(f'latent.shape: {latent.shape}')
+        # Decode from latent vector
+        decoded = self.latent_decoder(latent)  # [B, 512, 8]
+        # print(f'decoded.shape: {decoded.shape}')
+        # Decoder path with skip connections
+        d4 = self.up4(decoded)   # [B, 512, 16]
+        # print(f'd4.shape: {d4.shape}')
+        d4 = torch.cat([d4, e4], dim=1)  # [B, 1024, 16]
+        # print(f'd4.shape: {d4.shape}')
+        d4 = self.dec4(d4)       # [B, 256, 16]
+        # print(f'd4.shape: {d4.shape}')
+        d3 = self.up3(d4)        # [B, 256, 32]
+        d3 = torch.cat([d3, e3], dim=1)  # [B, 512, 32]
+        d3 = self.dec3(d3)       # [B, 128, 32]
+
+        d2 = self.up2(d3)        # [B, 128, 64]
+        d2 = torch.cat([d2, e2], dim=1)  # [B, 256, 64]
+        d2 = self.dec2(d2)       # [B, 64, 64]
+
+        d1 = self.up1(d2)        # [B, 64, 128]
+        d1 = torch.cat([d1, e1], dim=1)  # [B, 128, 128]
+        d1 = self.dec1(d1)       # [B, 32, 128]
+
+        output = self.final(d1)  # [B, 1, 128]
+        
+        return output.squeeze(1), latent  # 現在返回的 latent 是 [B, latent_dim]
 
 def main():
     data_folder = 'labeled_DB'
@@ -748,7 +1111,7 @@ def main():
     num_layers =2
     batch_size = 32
     lr = 1e-4
-    target_len = 100
+    target_len = 128#100
     #'pulse_interpolate_autoencoder.pth' : 一般的pulse autoencoder target_len = 100
     #'pulse_interpolate_autoencoder2.pth' : denoise autoencoder  target_len = 200
 
@@ -763,18 +1126,25 @@ def main():
     #計算訓練資料跟測試資料的長度
     print(f'train_data_len:{len(train_data)}, test_data_len:{len(test_data)}')
     # 初始化模型和優化器
-    model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
+    model_path = 'pulse_interpolate_autoencoder_1028_20dim.pth'
+    model_path = 'pulse_interpolate_autoencoder_1028_30dim_2criterion.pth'
+    model_path = 'pulse_interpolate_autoencoder_1028_30dim_2criterion_30.pth'
     model = EPGBaselinePulseAutoencoder(target_len=target_len).to(device)
+    # model_path = 'pulse_interpolate_cnn_autoencoder_1028_30dim.pth'
+    # model = ImprovedCNNAutoencoder(latent_dim=latent_dim).to(device)
+    # model_path = 'pulse_interpolate_unet_autoencoder_1024_20dim.pth'
+    # model_path = 'pulse_interpolate_unet_autoencoder_10dim.pth'
+    # model = UNetAutoencoder(target_len=target_len, latent_dim=latent_dim).to(device)
     
     # model = EPGBaselinePulseVAE(target_len=200).to(device)
     # model = LSTMVAE(input_dim, hidden_dim, latent_dim, num_layers).to(device)
     criterion = nn.L1Loss()  #Use L1Loss to train first
     criterion2 = nn.MSELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5) #Adam
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4) #Adam
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Total number of model parameters: {trainable_params}, model:{model}') 
-    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, model_path)
-    train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion2, device, model_path)
+    train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion, device, model_path)
+    # train_autoencoder(model, train_dataloader, test_dataloader, optimizer, criterion2, device, model_path)
 
     
     model.load_state_dict(torch.load(model_path))
@@ -782,8 +1152,8 @@ def main():
     # model = EPGBaselinePulseAutoencoder(100).to(device)
     # model.load_state_dict(torch.load(model_path))
     
-    encoded_data = predict_encoded_dataset(model, json_files)
-    save_encoded_data(encoded_data, 'latent_vectors_0909')
+    # encoded_data = predict_encoded_dataset(model, json_files)
+    # save_encoded_data(encoded_data, 'latent_vectors_0909')
 
     # 分析差异向量
     # pca, n_components_95, all_diff_vectors = analyze_diff_vectors(encoded_data)
@@ -800,20 +1170,20 @@ def main():
     
 
     # 統計每個維度的分佈範圍
-    all_latent_vectors = []
-    for vectors in encoded_data.values():
-        all_latent_vectors.extend(vectors)
-    all_latent_vectors = np.array(all_latent_vectors)
+    # all_latent_vectors = []
+    # for vectors in encoded_data.values():
+    #     all_latent_vectors.extend(vectors)
+    # all_latent_vectors = np.array(all_latent_vectors)
 
-    min_values = np.min(all_latent_vectors, axis=0)
-    max_values = np.max(all_latent_vectors, axis=0)
-    mean_values = np.mean(all_latent_vectors, axis=0)
-    std_values = np.std(all_latent_vectors, axis=0)
+    # min_values = np.min(all_latent_vectors, axis=0)
+    # max_values = np.max(all_latent_vectors, axis=0)
+    # mean_values = np.mean(all_latent_vectors, axis=0)
+    # std_values = np.std(all_latent_vectors, axis=0)
 
-    print(f"Min values: {min_values}")
-    print(f"Max values: {max_values}")
-    print(f"Mean values: {mean_values}")
-    print(f"Std values: {std_values}")
+    # print(f"Min values: {min_values}")
+    # print(f"Max values: {max_values}")
+    # print(f"Mean values: {mean_values}")
+    # print(f"Std values: {std_values}")
 
     # # 编码所有脉冲
     # encoded_data = encode_pulses(model, json_files, target_len, device=device)

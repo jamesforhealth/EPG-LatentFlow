@@ -1,0 +1,682 @@
+Missing files in wearing_consistency:
+=====================================
+
+Folder: 1
+---------
+  1\(2024-10-16 16_36_20),(1_EKG - resting  - 公司).json
+  1\(2024-10-16 16_36_20),(1_EPG - resting  - 公司).json
+  1\(2024-10-16 16_38_48),(1_EKG - rest1 - 公司).json
+  1\(2024-10-16 16_38_48),(1_EPG - rest1 - 公司).json
+  1\(2024-10-16 16_47_42),(1_EKG - rest - 公司).json
+  1\(2024-10-16 16_47_42),(1_EPG_L - rest - 公司).json
+Total files in this folder: 6
+
+Folder: 100
+-----------
+  100\(2023-08-16 12-34-57),().json
+Total files in this folder: 1
+
+Folder: 108
+-----------
+  108\(2024-04-23 11-41-12),(EPG_R - 104_74_83 - 公司).json
+Total files in this folder: 1
+
+Folder: 111
+-----------
+  111\(2023-11-22 15-06-19),(午休測試23左 34 右 - ICP).json
+  111\(2023-12-05 16-14-58),(timer - EPG60).json
+  111\(2024-01-09 16-02-37),(possible pressure sitting →standing waveform - TCCP_left).json
+  111\(2024-01-09 16-02-37),(possible pressure sitting →standing waveform - TCCP_right).json
+  111\(2024-01-22 10-11-23),(tilt 北榮正式 - TCCP_left).json
+  111\(2024-02-15 17-21-11),(EPG -  - 公司 131_98).json
+  111\(2024-02-16 16-01-09),(EPG -  - 公司 128_92 cali用).json
+  111\(2024-05-10 12-57-07),(EPG - after nasal breathing for 3 min 121_91_73 - 公司).json
+  111\(2024-05-23 14-54-28),(TCCP_L -  - 公司).json
+  111\(2024-07-22 16-33-21),(EPG - 2f - 公司).json
+  111\(2024-08-01 15-12-02),(EPG - naked sensor - 公司).json
+  111\(2024-08-06 10-39-54),(TCCP_R - test - 公司).json
+Total files in this folder: 12
+
+Folder: 113
+-----------
+  113\(2024-06-24 11-12-45),(EPG - 111-55 - 公司).json
+  113\(2024-07-16 11-06-02),(EPG - 125 - 2f - 公司).json
+  113\(2024-07-16 11-07-34),(EPG - 125 - 1f - 公司).json
+Total files in this folder: 3
+
+Folder: 114
+-----------
+  114\(2024-03-18 10-54-56),(TCCP_L - tilt 頸超比較 - 北榮神內).json
+  114\(2024-03-18 10-54-56),(TCCP_R - tilt 頸超比較 - 北榮神內).json
+Total files in this folder: 2
+
+Folder: 116
+-----------
+  116\(2024-09-03 14-47-22),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 14-48-25),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 14-51-13),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 14-52-48),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 14-54-00),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 14-55-09),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 14-56-47),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-02-06),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-10-00),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-12-39),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-13-56),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-15-15),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-16-20),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-17-14),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-18-42),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-19-33),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-20-50),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-22-19),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-23-22),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-24-19),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-25-30),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-26-30),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-27-54),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-29-05),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-31-25),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-33-11),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-34-11),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-35-23),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-03 15-37-12),(TICP_L - 111-1E-ticp重複 - 公司).json
+  116\(2024-09-09 15-08-19),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-09-14),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-10-27),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-11-57),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-13-08),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-13-50),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-15-28),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-17-56),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-19-37),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-20-33),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-21-28),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-22-25),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-23-12),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-23-55),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-24-40),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-25-47),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-26-48),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-27-38),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-28-22),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-29-38),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-31-21),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-31-59),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-33-52),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-34-32),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-35-23),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-36-07),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-37-42),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-38-20),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-09 15-39-02),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-27-55),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-30-22),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-35-49),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-47-24),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-48-49),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-49-55),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-51-00),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-52-00),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-52-49),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-53-35),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-54-29),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-55-29),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 15-56-20),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-02-55),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-05-27),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-06-50),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-11-40),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-12-43),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-13-38),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-14-27),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-15-38),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-16-51),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-17-58),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-19-11),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-20-12),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-20-58),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-22-49),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-27-20),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-28-50),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-29-35),(TICP_R - 111-1E - 公司).json
+  116\(2024-09-10 16-30-21),(TICP_R - 111-1E - 公司).json
+Total files in this folder: 89
+
+Folder: 117
+-----------
+  117\(2024-01-10 10-48-17),(VM - TCCP_right).json
+Total files in this folder: 1
+
+Folder: 121
+-----------
+  121\(2024-02-15 11-34-46),(TCCP_L - dual skull sitting →standing - 公司).json
+Total files in this folder: 1
+
+Folder: 123
+-----------
+  123\(2024-02-27 15-27-44),(EPG_L - pretest 1 - 北榮心臟).json
+Total files in this folder: 1
+
+Folder: 125
+-----------
+  125\(2024-03-01 16-08-16),(EPG_L - resting - 公司).json
+  125\(2024-03-01 16-10-46),(EPG_L - resting - 公司).json
+  125\(2024-03-01 17-04-52),(TCCP_R -  - 公司).json
+  125\(2024-03-01 17-06-18),(TCCP_L - sitting  to standing - 公司).json
+  125\(2024-03-01 17-06-18),(TCCP_R - sitting  to standing - 公司).json
+  125\(2024-03-04 11-58-52),(EPG_L -  - 公司).json
+  125\(2024-03-04 12-01-06),(EPG_R - 165_109mmHg - 公司).json
+  125\(2024-03-06 10-39-44),(TCCP_R - 靜態臥姿 - 公司).json
+  125\(2024-03-06 10-49-17),(TCCP_L - sitting →standing - 公司).json
+  125\(2024-03-11 16-46-28),(EPG_L - cuff 同時量 左160_111mmHg).json
+  125\(2024-03-14 15-42-43),(EPG_L - sitting →standing - 公司).json
+  125\(2024-03-14 15-42-43),(EPG_R - sitting →standing - 公司).json
+  125\(2024-03-15 14-28-43),(EPG_L - sitting to standing EPG 與TCCP同測 - 公司).json
+  125\(2024-04-26 10-55-05),(EPG 139_94mmHg  - 公司).json
+  125\(2024-05-31 16-32-54),(TCCP_L - sit - 公司).json
+  125\(2024-05-31 16-32-54),(TCCP_R - sit - 公司).json
+  125\(2024-05-31 16-35-48),(TCCP_L - sit2 - 公司).json
+  125\(2024-05-31 16-35-48),(TCCP_R - sit2 - 公司).json
+Total files in this folder: 18
+
+Folder: 128
+-----------
+  128\(2024-03-11 15-27-15),(EPG_R - test3 - 北榮心臟).json
+Total files in this folder: 1
+
+Folder: 134
+-----------
+  134\(2024-03-14 10-41-48),(EPG_R -  - 公司).json
+  134\(2024-03-14 11-47-43),(EPG - sitting →standing - 公司).json
+  134\(2024-03-14 11-56-41),(EPG - sitting →standing - 公司).json
+Total files in this folder: 3
+
+Folder: 142
+-----------
+  142\(2024-05-27 16-41-48),(EPG_R -  95_66_70- 公司).json
+Total files in this folder: 1
+
+Folder: 143
+-----------
+  143\(2024-04-22 15-49-57),(EPG_L - 92_63_85 - 公司).json
+Total files in this folder: 1
+
+Folder: 144
+-----------
+  144\(2024-05-27 16-06-08),(EPG_R - 96_64_76 - 公司).json
+Total files in this folder: 1
+
+Folder: 146
+-----------
+  146\(2024-04-17 17-18-29),(EPG - 下班前123_77 - 公司).json
+  146\(2024-04-17 17-20-42),(EPG - 坐→站123_77 - 公司).json
+Total files in this folder: 2
+
+Folder: 155
+-----------
+  155\(2024-05-22 16-49-10),(TCCP_R - resting2左邊沒有 - 公司).json
+  155\(2024-05-22 16-59-37),(TCCP_L - sitting-_standing - 公司).json
+Total files in this folder: 2
+
+Folder: 156
+-----------
+  156\(2024-05-20 16-47-59),(EPG_R - sit 右手 手腕 113_68_72 上臂 122_67_70).json
+  156\(2024-05-21 17-00-33),(EPG_R -  - 公司).json
+  156\(2024-05-23 12-41-02),(EPG_R - sit- 公司 上臂 98_62_68).json
+  156\(2024-05-23 16-33-29),(TCCP_R - tccp - 公司).json
+  156\(2024-05-31 11-52-47),(TCCP_R - rest - 公司).json
+  156\(2024-05-31 11-53-09),(TCCP_L - sit - 公司).json
+  156\(2024-05-31 12-22-15),(TCCP_L - sitting →standing - 有搖晃感).json
+  156\(2024-05-31 12-22-15),(TCCP_R - sitting →standing  有搖晃感).json
+  156\(2024-05-31 12-24-25),(TCCP_L - sitting →standing - 公司).json
+  156\(2024-05-31 12-24-25),(TCCP_R - sitting →standing - 公司).json
+  156\(2024-09-23 12-00-21),(EPG_L - vm2 - 公司).json
+  156\(2024-09-23 12-00-21),(TICP_L - vm2 - 公司).json
+  156\(2024-09-23 12-06-35),(EPG_L - vm4 - 公司).json
+  156\(2024-09-23 12-06-35),(TICP_L - vm4 - 公司).json
+  156\(2024-09-23 16-34-35),(EPG_L - co2_1 - 公司).json
+  156\(2024-09-23 16-34-35),(TICP_L - co2_1 - 公司).json
+  156\(2024-09-23 16-42-41),(EPG_L - co2_2 - 公司).json
+  156\(2024-09-23 16-42-41),(TICP_R - co2_2 - 公司).json
+  156\(2024-10-16 16_12_26),(156_EKG - rest - 公司).json
+  156\(2024-10-16 16_12_26),(156_EPG - rest - 公司).json
+Total files in this folder: 20
+
+Folder: 158
+-----------
+  158\(2024-05-26 12-43-26),(EPG - 飯前 - 公司).json
+Total files in this folder: 1
+
+Folder: 166
+-----------
+  166\(2024-06-14 14-20-18),(EPG - 126_79_60 - 公司).json
+  166\(2024-06-14 14-26-06),(EPG - 115_74_54 - 公司).json
+Total files in this folder: 2
+
+Folder: 168
+-----------
+  168\(2024-06-14 14-17-59),(EPG - 121_76_68 - 公司).json
+Total files in this folder: 1
+
+Folder: 172
+-----------
+  172\(2024-06-14 10-48-26),(EPG - 113_61_70 - 公司).json
+Total files in this folder: 1
+
+Folder: 18
+----------
+  18\(2023-11-04 07-42-57),(General log - EPG).json
+Total files in this folder: 1
+
+Folder: 191
+-----------
+  191\(2024-08-21 17-53-25),(TCCP_L - icu 病人三總 - 三總神外).json
+  191\(2024-08-21 17-53-25),(TCCP_R - icu 病人三總 - 三總神外).json
+Total files in this folder: 2
+
+Folder: 193
+-----------
+  193\(2024-08-21 18-31-48),(TCCP_R - icu 測試2少一個左頭蓋骨 - 三總神外).json
+Total files in this folder: 1
+
+Folder: 196
+-----------
+  196\(2024-09-06 14-33-41),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-41-51),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-44-30),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-45-43),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-48-38),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-49-50),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-51-11),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-53-50),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-58-08),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 14-59-16),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 15-06-31),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 15-07-55),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 15-10-06),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 15-12-29),(TICP_R - 156-ticp - 公司).json
+  196\(2024-09-06 15-17-38),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-19-28),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-22-18),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-24-10),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-25-31),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-27-13),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-28-48),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-39-08),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-40-45),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-43-13),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-45-06),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-46-06),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-48-34),(TICP_R - 156-ticp  - 公司).json
+  196\(2024-09-06 15-52-29),(TICP_R - 156-ticp  - 公司).json
+Total files in this folder: 28
+
+Folder: 20
+----------
+  20\(2023-08-05 22-41-23),(sit, after eat fruit).json
+  20\(2023-10-20 16-05-08),(valsalva test - EPG).json
+  20\(2023-10-20 16-07-40),(valsalva test - EPG).json
+  20\(2023-10-20 16-07-40),(valsalva test - ICP).json
+  20\(2023-10-20 16-08-31),(valsalva test - EPG).json
+  20\(2023-10-30 16-55-23),(breath test - EPG).json
+  20\(2023-10-30 16-56-02),(breath test2 - EPG).json
+  20\(2023-10-30 17-01-23),(breath test3 - EPG).json
+  20\(2023-10-30 17-01-58),(breath test4 - EPG).json
+  20\(2023-11-01 16-57-04),(3-min - ICP).json
+  20\(2023-11-07 10-58-20),(慢速呼吸3分鐘+正常呼吸1分鐘 - ICP).json
+  20\(2023-11-07 11-04-03),(30s正常+25s快速呼吸+2min正常呼吸 - ICP).json
+  20\(2023-11-23 16-15-54),(左23 右34 A nap - ICP).json
+  20\(2023-11-28 09-49-59),(北榮 - EPG).json
+  20\(2023-11-28 09-54-53),(壓脖子2 - ICP 左48).json
+  20\(2023-11-28 10-08-28),(左48 右52 vm - ICP).json
+  20\(2023-11-28 10-12-21),(右52 vm2 - ICP).json
+  20\(2023-11-28 10-12-21),(左48 vm2 - ICP).json
+  20\(2023-11-28 10-22-23),(左48 右52 10 min test - ICP).json
+Total files in this folder: 19
+
+Folder: 202
+-----------
+  202\(2024-10-14 15-56-00),(EPG_L - 純resting - 公司).json
+  202\(2024-10-14 15-56-00),(TICP_R - 純resting - 公司).json
+  202\(2024-10-14 15-58-14),(EPG_L - 大力呼吸 - 公司).json
+  202\(2024-10-14 15-58-14),(TICP_R - 大力呼吸 - 公司).json
+Total files in this folder: 4
+
+Folder: 206
+-----------
+  206\(2024-10-22 10_16_14),(206_EPG - air - 公司).json
+  206\(2024-10-22 10_17_37),(206_EPG - air1000 - 公司).json
+  206\(2024-10-22 10_29_20),(206_TICP - air - 公司).json
+  206\(2024-10-22 10_31_14),(206_TICP - air1000 - 公司).json
+  206\(2024-10-22 15_58_06),(206_TICP - 5min - 公司).json
+  206\(2024-10-22 16_13_25),(206_TICP - 5min2 - 公司).json
+  206\(2024-10-23 16-06-29),(TICP_L - air -copy).json
+  206\(2024-10-23 16-06-29),(TICP_L - air).json
+  206\(2024-10-23 16-06-29),(TICP_R - air -copy).json
+  206\(2024-10-23 16-06-29),(TICP_R - air).json
+Total files in this folder: 10
+
+Folder: 29
+----------
+  29\(2023-05-09 15-45-45),(first).json
+Total files in this folder: 1
+
+Folder: 31
+----------
+  31\(2023-05-12 14-05-48),().json
+Total files in this folder: 1
+
+Folder: 32
+----------
+  32\(2023-05-13 14-00-06),().json
+  32\(2023-05-13 14-25-20),().json
+Total files in this folder: 2
+
+Folder: 33
+----------
+  33\(2023-05-13 20-13-59),().json
+Total files in this folder: 1
+
+Folder: 34
+----------
+  34\(2023-12-04 11-54-26),( - EPG).json
+Total files in this folder: 1
+
+Folder: 35
+----------
+  35\(2023-05-20 15-54-27),().json
+Total files in this folder: 1
+
+Folder: 36
+----------
+  36\(2023-05-20 16-17-39),().json
+Total files in this folder: 1
+
+Folder: 37
+----------
+  37\(2023-09-26 15-52-21),(EPG - za消失).json
+  37\(2023-12-04 11-57-28),( - EPG).json
+  37\(2023-12-04 12-19-47),(左48 右52北榮vm - ICP).json
+  37\(2023-12-04 12-32-36),(左48 右52北榮VM 2 - ICP).json
+  37\(2023-12-04 12-39-08),(左48 右5210 min resting  - ICP).json
+Total files in this folder: 5
+
+Folder: 4
+---------
+  4\(2023-07-19 14-16-58),(021C飯後).json
+  4\(2023-07-19 14-59-43),(0203飯後2小時).json
+  4\(2023-07-19 15-02-44),(0203躺平).json
+  4\(2023-07-19 15-37-51),(021C躺平).json
+  4\(2023-07-19 16-05-46),(021C躺平).json
+  4\(2023-07-20 15-04-56),(0217).json
+  4\(2023-07-29 06-07-47),(起床前).json
+  4\(2023-07-29 14-32-11),(午休).json
+  4\(2023-08-01 07-17-19),().json
+  4\(2023-08-02 14-38-45),().json
+  4\(2023-08-02 15-16-24),().json
+  4\(2023-08-02 18-38-30),().json
+  4\(2023-08-03 12-11-28),(走路手不晃動).json
+  4\(2023-08-09 12-03-19),().json
+  4\(2023-08-10 16-23-25),().json
+  4\(2023-08-15 17-24-32),().json
+  4\(2023-08-19 22-36-55),().json
+  4\(2023-08-30 18-27-13),(without foam and filter).json
+  4\(2023-09-01 16-15-59),(Arteria temporalis superficialis).json
+  4\(2023-09-05 23-17-47),(左眶骨有可能顳動脈).json
+  4\(2023-09-13 13-32-56),(iOS).json
+  4\(2023-09-15 22-54-17),(icp hypercapnia).json
+  4\(2023-09-16 23-03-27),(icp lie down 兼嗚 左額).json
+  4\(2023-09-17 01-17-30),(鷳).json
+  4\(2023-09-17 01-27-00),(icp左側額 lie down).json
+  4\(2023-09-19 22-31-34),(icp sleeping).json
+  4\(2023-09-20 22-05-54),(icp sitting-up little headache ).json
+  4\(2023-09-20 22-55-21),(icp 躺－立 姿勢性低血壓症狀).json
+  4\(2023-09-20 23-03-30),(icp 躺－立 姿勢性低血壓症狀).json
+  4\(2023-09-20 23-06-00),(icp lie down yawning ).json
+  4\(2023-09-21 18-18-10),(icp lie down yawning ).json
+  4\(2023-09-21 23-14-22),(icp down-up).json
+  4\(2023-09-22 17-44-05),(FMD test).json
+  4\(2023-09-27 16-40-34),(icp with foam).json
+  4\(2023-09-27 23-38-56),(icp 前額正中).json
+  4\(2023-09-30 23-32-31),(icp sleeping).json
+  4\(2023-10-03 07-53-13),(起床前 - EPG).json
+  4\(2023-10-03 11-21-21),(icp hyper cap is).json
+  4\(2023-10-10 10-52-54),(icp sitting-up).json
+  4\(2023-10-11 12-18-47),(icp l & r - ICP).json
+  4\(2023-10-11 23-30-24),(icp lie down).json
+  4\(2023-10-11 23-34-44),(icp lie down).json
+  4\(2023-10-12 14-05-49),(icp 吃辣麵後感覺冒熱).json
+  4\(2023-10-12 15-32-51),(hypercapina - EPG).json
+  4\(2023-10-18 14-11-17),(打哈欠icp - EPG).json
+  4\(2023-10-18 14-17-33),(打哈欠icp - EPG).json
+  4\(2023-10-20 00-41-24),(Valsalva test 左 - EPG).json
+  4\(2023-10-20 00-42-41),(Valsalva test 左 - EPG).json
+  4\(2023-10-24 13-03-43),(坐姿 耳鳴及頭不舒服 - ICP).json
+  4\(2023-10-25 09-48-30),(vm - ICP).json
+  4\(2023-10-25 10-01-27),(Val test - ICP).json
+  4\(2023-10-25 10-04-10),(Val test 2 - ICP).json
+  4\(2023-10-25 10-10-32),(Val test right  - ICP).json
+  4\(2023-10-25 10-17-31),(Val test right  - ICP).json
+  4\(2023-10-25 10-23-06),(Val test right only internal test - ICP).json
+  4\(2023-10-25 10-38-56),(血壓測試 - EPG).json
+  4\(2023-10-25 11-08-56),(腦血管超音波 吸氣 - ICP).json
+  4\(2023-10-25 11-23-35),(腦血管超音波 吸氣 - ICP).json
+  4\(2023-10-25 11-24-38),(腦血管超音波 吸氣 - ICP).json
+  4\(2023-10-25 11-43-54),(腦血管超音波 吸氣 - ICP).json
+  4\(2023-10-25 11-45-56),(腦血管超音波 吸氣 - ICP).json
+  4\(2023-10-25 23-06-14),(right - ICP).json
+  4\(2023-10-28 23-32-35),(sitting up testing - ICP).json
+  4\(2023-10-29 15-30-52),(sitting  up testing - ICP).json
+  4\(2023-10-31 15-47-43),(袖帶血壓量測 - ICP).json
+  4\(2023-11-02 10-50-48),(icp +EPG - EPG).json
+  4\(2023-11-02 23-10-11),(lying down  - ICP).json
+  4\(2023-11-05 17-22-10),(戒咖啡第七天 鍛練前 臤姿 - ICP).json
+  4\(2023-11-05 17-25-00),(戒咖啡第七天 鍛練前 臤姿→站姿 - ICP).json
+  4\(2023-11-05 22-25-28),(臥→坐→立 - ICP).json
+  4\(2023-11-07 10-34-31),(快速呼吸測試 - ICP).json
+  4\(2023-11-09 15-57-28),(左 - ICP).json
+  4\(2023-11-09 16-39-23),(深呼吸 左 - ICP).json
+  4\(2023-11-09 16-48-00),(深呼吸 左 - ICP).json
+  4\(2023-11-11 23-23-45),(戒咖啡13天後下午喝咖啡 臤姿 頭墊高 - ICP).json
+  4\(2023-11-11 23-30-07),(EPG+ICP - ICP).json
+  4\(2023-11-21 22-49-04),(23左 臥姿 34右 sleeping - ICP).json
+  4\(2023-11-21 23-12-24),(23左 臥姿 34右 sleeping - ICP).json
+  4\(2023-11-22 00-00-24),(23左 臥姿 34右 sleeping - ICP).json
+  4\(2023-11-22 00-00-24),(23左 臥姿 sleeping - ICP).json
+  4\(2023-11-23 12-58-58),(左23 右34 小睡 - ICP).json
+  4\(2023-11-23 22-55-42),(sleeping study - ICP).json
+  4\(2023-11-24 00-09-11),(sitting to standing  - EPG).json
+  4\(2023-11-24 00-09-11),(sitting to standing  - ICP).json
+  4\(2023-12-20 09-32-48),(臥→坐→立 left skull - ICP).json
+  4\(2023-12-20 09-56-27),(坐→立→坐→立 left skull long-term  - ICP).json
+  4\(2023-12-20 11-14-26),(34左  55右 坐→立 - ICP).json
+  4\(2023-12-20 11-23-13),(34左  55右 坐→立 - ICP).json
+  4\(2023-12-20 14-53-28),(55 left 34 right坐→立 - ICP).json
+  4\(2023-12-20 14-55-38),(55 left 34 right deep breathing - ICP).json
+  4\(2023-12-20 15-14-41),(55 left 34 right deep breathing - ICP).json
+  4\(2023-12-20 15-19-15),(55 left 34 right Hypercapnia study - ICP).json
+  4\(2023-12-20 15-26-21),(55 left 34 right Hypercapnia study 第十秒開始罩口鼻 - ICP - 袋子破洞).json
+  4\(2023-12-20 15-39-43),(55 left 34 right Hypercapnia study 第十秒開始第63秒結束罩口鼻 - ICP).json
+  4\(2023-12-26 11-03-56),(坐→立 - ICP).json
+  4\(2023-12-26 11-05-02),(坐→立 - ICP).json
+  4\(2024-01-02 15-36-50),(both skulls sitting →standing - TCCP_left).json
+  4\(2024-01-02 15-36-50),(both skulls sitting →standing - TCCP_right).json
+  4\(2024-01-02 15-41-02),(both skulls sitting →standing - TCCP_left).json
+  4\(2024-01-09 11-36-27),(2-channel sitting →standing - EPG_left).json
+  4\(2024-01-09 11-36-27),(2-channel sitting →standing - EPG_right).json
+  4\(2024-01-11 15-26-48),(sensor with small cap  - TCCP_right).json
+  4\(2024-01-15 19-31-52),(VM - EPG).json
+  4\(2024-01-16 12-29-42),(2-channel TCCP  sitting →standing - TCCP_left).json
+  4\(2024-01-16 12-29-42),(2-channel TCCP  sitting →standing - TCCP_right).json
+  4\(2024-01-16 17-21-57),(憋氣 - EPG).json
+  4\(2024-01-16 17-52-40),(憋気 - EPG).json
+  4\(2024-01-16 17-59-29),(憋気 - EPG).json
+  4\(2024-01-18 14-13-49),(omron cuff blood pressure monitoring  - EPG).json
+  4\(2024-02-16 17-20-48),(EPG - 坐姿手臂旋轉 - 公司).json
+  4\(2024-02-16 17-21-23),(EPG - 坐姿手臂旋轉 - 公司).json
+  4\(2024-02-16 17-26-59),(EPG - 坐姿手臂旋轉 - 公司).json
+  4\(2024-02-16 17-30-25),(EPG - 坐姿手臂平→舉高→平 - 公司).json
+  4\(2024-02-16 17-54-20),(EPG - 立姿手臂下垂→擧高→放下 - 公司).json
+  4\(2024-02-26 17-04-30),(EPG - radial to finger pulse velocity - 公司).json
+  4\(2024-02-26 22-47-10),(EPG - VM - 公司).json
+  4\(2024-02-26 22-47-10),(EPG - VM study - 公司).json
+  4\(2024-02-26 23-06-13),(EPG -  vm study - 公司).json
+  4\(2024-03-19 14-38-38),(EPG_L - sitting →standing - 公司).json
+  4\(2024-03-19 14-38-38),(EPG_R - sitting →standing - 公司).json
+  4\(2024-03-19 16-01-52),(TCCP_L - sitting →standing - 公司).json
+  4\(2024-03-19 16-01-52),(TCCP_R - sitting →standing - 公司).json
+  4\(2024-03-20 09-17-01),(EPG_R - radial cuff - 公司).json
+  4\(2024-03-21 11-26-45),(EPG - radial cuff - 公司).json
+  4\(2024-03-21 11-31-29),(EPG - radial cuff - 公司).json
+  4\(2024-03-21 11-35-53),(EPG - radial cuff - 公司).json
+  4\(2024-03-21 14-56-59),(EPG - radial cuff - 公司).json
+  4\(2024-05-27 15-35-59),(EPG -  錶帶扣好--_ 未扣).json
+  4\(2024-05-31 06-10-25),(EPG  Morning Sleep Study).json
+  4\(2024-05-31 07-03-46),(EPG - 活動後休息5分鐘 - 公司).json
+  4\(2024-06-05 16-27-56),(TCCP_L - sitting → standing 有夾住).json
+  4\(2024-06-05 16-27-56),(TCCP_R - sitting → standing  有夾住).json
+  4\(2024-06-05 16-48-01),(TCCP_L - sitting → standing - 公司).json
+  4\(2024-06-05 16-48-01),(TCCP_R - sitting → standing - 公司).json
+  4\(2024-06-05 16-49-07),(TCCP_L - sitting → standing - 公司).json
+  4\(2024-06-05 16-49-07),(TCCP_R - sitting → standing - 公司).json
+  4\(2024-06-05 16-50-21),(TCCP_L - sitting → standing - 公司).json
+  4\(2024-06-05 16-50-21),(TCCP_R - sitting → standing - 公司).json
+  4\(2024-06-05 17-02-22),(TICP_L - sitting → standing - 公司).json
+  4\(2024-06-05 17-02-22),(TICP_R - sitting → standing - 公司).json
+  4\(2024-06-15 13-59-28),(EPG - 特 坐→站 - 公司).json
+  4\(2024-06-15 14-05-50),(EPG - 特 resting deep breathing吸→吐 good- 公司).json
+Total files in this folder: 142
+
+Folder: 42
+----------
+  42\(2023-07-19 16-31-18),(0203坐).json
+  42\(2023-07-31 09-47-04),(sit ).json
+  42\(2023-08-02 11-55-51),(sit).json
+  42\(2023-08-03 01-01-41),(take a break ).json
+  42\(2023-08-03 08-33-04),(wake up ).json
+  42\(2023-08-03 08-41-11),(wake up ).json
+  42\(2023-08-03 08-44-32),(wake up ).json
+  42\(2023-08-03 13-06-58),(空腹).json
+  42\(2023-08-03 16-17-33),(take a break ).json
+  42\(2023-08-03 19-43-15),(sleeping ).json
+  42\(2023-08-24 09-39-40),(headache ).json
+  42\(2023-09-06 10-08-37),(sit).json
+  42\(2023-09-07 09-27-16),(sit).json
+  42\(2023-09-07 15-51-17),(test).json
+  42\(2023-09-07 15-52-51),(test).json
+  42\(2023-09-27 10-26-49),(sit  health - EPG).json
+  42\(2023-10-31 14-29-52),(sitting up testing - EPG).json
+  42\(2023-11-23 00-02-24),(sleeping - ICP).json
+  42\(2023-12-14 10-06-24),(sit - 5 min - EPG).json
+  42\(2023-12-14 10-30-52),(sit  - EPG_left).json
+  42\(2024-01-11 17-01-20),(tccp sit stand - TCCP_right).json
+  42\(2024-01-18 14-35-04),(omron cuff blood pressure monitoring - EPG).json
+  42\(2024-01-18 14-40-43),(omron cuff blood pressure monitoring - EPG).json
+  42\(2024-01-22 11-47-10),(北榮測試-床左 - EPG_left).json
+  42\(2024-01-22 11-58-56),(北榮測試-床左 - EPG_left).json
+  42\(2024-01-23 15-45-20),(臥姿量血壓 - EPG_right [84_60][86_63]).json
+  42\(2024-02-23 12-07-45),(TCCP_L - test band - 公司).json
+  42\(2024-02-23 12-07-45),(TCCP_R - test band - 公司).json
+  42\(2024-02-23 12-20-53),(EPG - test band  - 公司).json
+  42\(2024-03-19 15-37-32),(EPG_R - sitting →standing - 公司).json
+Total files in this folder: 30
+
+Folder: 45
+----------
+  45\(2023-06-29 16-16-15),().json
+Total files in this folder: 1
+
+Folder: 52
+----------
+  52\(2023-08-08 15-48-23),(sit ).json
+  52\(2023-09-22 15-37-00),(icp).json
+Total files in this folder: 2
+
+Folder: 56
+----------
+  56\(2023-10-29 15-04-50),(sitting  up testing - ICP).json
+  56\(2024-05-20 23-57-40),(EPG_R - 臥姿 - 公司).json
+Total files in this folder: 2
+
+Folder: 68
+----------
+  68\(2023-11-27 10-14-33),(左23 右34 呼吸測試 - TCCP).json
+  68\(2023-12-18 16-19-43),(感覺頭暈 - ICP).json
+  68\(2024-01-23 15-52-10),(臥姿量血壓2次 - EPG_right [128_71][119_72]).json
+  68\(2024-02-20 22-38-35),(EPG -  - 公司).json
+  68\(2024-02-20 23-01-37),(EPG -  - 公司).json
+  68\(2024-03-12 14-32-42),(EPG - 500  - 公司).json
+  68\(2024-03-12 15-08-24),(TCCP_R - sitting to standing and sitting - 公司).json
+  68\(2024-03-13 12-38-48),(TCCP_R - sitting →standing →sit - 公司).json
+  68\(2024-03-13 12-47-31),(TCCP_L - sitting →standing →sit - 公司).json
+  68\(2024-03-13 12-48-56),(TCCP_L - sitting →standing →sit - 公司).json
+  68\(2024-03-13 12-48-56),(TCCP_R - sitting →standing →sit - 公司).json
+  68\(2024-03-13 15-45-24),(EPG - 日常量測 - 公司).json
+  68\(2024-03-14 11-33-41),(EPG - 例行測量(掉拍) - 公司).json
+  68\(2024-04-14 21-13-43),(EPG -  - 公司).json
+Total files in this folder: 14
+
+Folder: 74
+----------
+  74\(2024-06-15 18-41-25),(TCCP_L - 特TICP坐姿抬腿 - 公司).json
+Total files in this folder: 1
+
+Folder: 82
+----------
+  82\(2024-07-23 12-47-29),(EPG_L - 20240723 - 119_83_99 - 公司).json
+  82\(2024-07-23 12-48-14),(EPG_L - 20240723 - 119_83_99 - 公司).json
+  82\(2024-07-23 12-49-15),(EPG_L - 20240723 - 119_83_99 - 公司).json
+  82\(2024-07-23 16-17-05),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-17-47),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-18-32),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-19-26),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-20-06),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-21-03),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-21-49),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-22-42),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-23-26),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-24-23),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-25-49),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-26-25),(EPG - 0723 - 公司).json
+  82\(2024-07-23 16-27-00),(EPG - 0723 - 公司).json
+Total files in this folder: 16
+
+Folder: 87
+----------
+  87\(2024-03-11 15-08-48),(EPG_R - 陽明2 - test3 - 北榮心臟___(under-damping)).json
+Total files in this folder: 1
+
+Folder: 91
+----------
+  91\(2024-07-10 15-11-05),(EPG - 111 - 25 - 公司).json
+  91\(2024-07-11 15-35-30),(EPG - 111 - 1f - 公司).json
+  91\(2024-07-11 15-44-18),(EPG - 111 - 34 - 公司).json
+  91\(2024-07-11 15-48-46),(EPG - 111 - 34 - 公司).json
+  91\(2024-07-11 16-00-18),(EPG - 111 - 3b - 公司).json
+  91\(2024-07-11 16-04-20),(EPG - 111 - 2f - 公司).json
+  91\(2024-07-16 10-18-26),(EPG - 111-55 - 公司).json
+  91\(2024-07-16 15-38-50),(EPG - 111-2f - 公司).json
+Total files in this folder: 8
+
+Folder: 92
+----------
+  92\(2024-07-15 16-47-20),(EPG - 111-2f-10min - 公司).json
+  92\(2024-07-16 09-59-03),(EPG - 111 - 55-10min - 公司).json
+  92\(2024-07-16 15-50-24),(EPG - 111-1f-10min - 公司).json
+  92\(2024-07-29 16-28-12),(EPG - 111-2f - 公司).json
+  92\(2024-07-29 17-16-13),(EPG - 42-10min - 公司).json
+  92\(2024-07-30 10-33-15),(EPG - 111 - 手往下 - 公司).json
+  92\(2024-07-30 16-15-16),(EPG - 42 手放大腿 - 公司).json
+Total files in this folder: 7
+
+Folder: 93
+----------
+  93\(2024-07-11 15-44-18),(EPG - 111 - 34普 - 公司).json
+  93\(2024-07-11 16-00-18),(EPG - 111 - 3b鬆 - 公司).json
+  93\(2024-07-11 16-04-20),(EPG - 111 - 2f鬆 - 公司).json
+  93\(2024-07-16 10-18-26),(EPG - 111 - 55普 - 公司).json
+  93\(2024-07-16 10-18-26),(EPG - 111 - 55鬆 - 公司).json
+Total files in this folder: 5
+
+Total missing files: 478

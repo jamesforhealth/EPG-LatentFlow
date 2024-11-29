@@ -8,32 +8,39 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import json
 
-def predict_encoded_dataset(model, json_files, basedir = 'labeled_DB'):
+def predict_encoded_dataset(model, json_files, basedir='labeled_DB'):
     model.eval()
     encoded_data = {} 
     for json_file in json_files:
         try:
-            #get relative path to data_folder
-            if json_file.startswith(basedir):
-                relative_path = os.path.relpath(json_file, basedir).split(',')[0].replace('\\', '  ').replace('.', ' ')
-                # input(f'relative_path: {relative_path}')
+            # 簡化路徑處理
+            relative_path = os.path.relpath(json_file, basedir)
+            relative_path = relative_path.replace('\\', '/').replace('.json', '')
+            
             with open(json_file, 'r') as f:
                 json_data = json.load(f)
                 signal = json_data['smoothed_data']
                 original_sample_rate = json_data.get('sample_rate', 100)
                 x_points = json_data['x_points']
-                latent_vector_list = predict_latent_vector_list(model, signal, original_sample_rate, x_points, target_len=100) 
-
-                # print(f'latent_vector_list: {latent_vector_list}')
-                # print(f'File: {json_file}')
-                # for i, (sim, dist, diff) in enumerate(zip(similarity_list, distance_list, diff_vectors)):
-                #     print(f'Pulse {i} to Pulse {i+1} - Similarity: {sim:.4f}, Distance: {dist:.4f}, Diff Vector Norm: {np.linalg.norm(diff):.4f}')
-                encoded_data[relative_path] = np.array(latent_vector_list)
+                
+                if not signal or not x_points:
+                    print(f'Warning: Empty signal or x_points in {json_file}')
+                    continue
+                    
+                latent_vector_list = predict_latent_vector_list(
+                    model, signal, original_sample_rate, x_points, target_len=100
+                )
+                
+                if latent_vector_list:  # 確保有結果才保存
+                    encoded_data[relative_path] = np.array(latent_vector_list)
+                
         except Exception as e:
-            print(f'Error in loading {json_file}: {e}')  
+            print(f'Error in processing {json_file}: {e}')
+            continue
+            
     return encoded_data
 
-def predict_latent_vector_list(model, signal, sample_rate, peaks, target_len = 100):#100):
+def predict_latent_vector_list(model, signal, sample_rate, peaks, target_len=100):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # input(f'signal: {signal}')
     # 重採樣信號
@@ -53,24 +60,53 @@ def predict_latent_vector_list(model, signal, sample_rate, peaks, target_len = 1
     for i in range(len(peaks) - 1):
         start_idx = peaks[i]
         end_idx = peaks[i + 1]
+        
+        # 添加邊界檢查
+        if start_idx >= len(signal) or end_idx > len(signal):
+            print(f'Warning: Invalid peak indices: {start_idx}, {end_idx} for signal length {len(signal)}')
+            continue
+            
         pulse = signal[start_idx:end_idx]
-        pulse_length = end_idx - start_idx  # 記錄脈衝的原始長度
+        pulse_length = end_idx - start_idx
 
         if pulse_length > 1:
-            # 插值到目標長度
-            interp_func = scipy.interpolate.interp1d(np.arange(pulse_length), pulse, kind='linear', fill_value="extrapolate")
-            pulse_resampled = interp_func(np.linspace(0, pulse_length - 1, target_len))
-            pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(device)
+            try:
+                # 插值到目標長度
+                interp_func = scipy.interpolate.interp1d(
+                    np.arange(pulse_length), 
+                    pulse, 
+                    kind='linear', 
+                    fill_value="extrapolate"
+                )
+                pulse_resampled = interp_func(np.linspace(0, pulse_length - 1, target_len))
+                
+                # 確保數據類型正確
+                pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(device)
 
-            with torch.no_grad():
-                _, latent_vector = model(pulse_tensor)
-                latent_vector = latent_vector.squeeze().cpu().numpy()
-                latent_vector = np.concatenate([latent_vector, np.array([pulse_length/100])], axis=0)
-
-                # input(f'i:{i}, start_idx:{start_idx}, latent_vector:{latent_vector}')
-                latent_vector_list.append(latent_vector)
-            # 將重建的脈衝還原為原始長度
-
+                with torch.no_grad():
+                    _, latent_vector = model(pulse_tensor)
+                    latent_vector = latent_vector.squeeze().cpu().numpy()
+                    
+                    # 確保向量維度正確
+                    if len(latent_vector.shape) > 1:
+                        print(f'Warning: Unexpected latent vector shape: {latent_vector.shape}')
+                        continue
+                        
+                    latent_vector = np.concatenate([
+                        latent_vector, 
+                        np.array([pulse_length/100])
+                    ])
+                    latent_vector_list.append(latent_vector)
+                    
+            except Exception as e:
+                print(f'Error processing pulse {i}: {e}')
+                continue
+    
+    # 確保有足夠的向量進行差異分析
+    if len(latent_vector_list) < 2:
+        print('Warning: Not enough vectors for difference analysis')
+        return latent_vector_list
+        
     #計算前後latent_vector之間的相似程度
     similarity_list = []
     distance_list = []
@@ -101,10 +137,17 @@ def save_encoded_data(encoded_data, output_dir):
         os.makedirs(output_dir)
     
     for path, vectors in encoded_data.items():
-        output_path = os.path.join(output_dir, path.replace('/', '_') + '.h5')
-        with h5py.File(output_path, 'w') as f:
-            f.create_dataset('data', data=vectors)
-            f.attrs['original_path'] = path
+        # 創建合法的文件名
+        safe_path = path.replace('/', '_').replace('\\', '_')
+        output_path = os.path.join(output_dir, f'{safe_path}.h5')
+        
+        try:
+            with h5py.File(output_path, 'w') as f:
+                f.create_dataset('data', data=vectors)
+                f.attrs['original_path'] = path
+                
+        except Exception as e:
+            print(f'Error saving file {output_path}: {e}')
 
 def analyze_diff_vectors(encoded_data):
     all_diff_vectors = []

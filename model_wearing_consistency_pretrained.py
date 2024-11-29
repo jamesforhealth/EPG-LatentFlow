@@ -10,7 +10,8 @@ import torch
 from torch import nn, optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
-from preprocessing import process_DB_rawdata, get_json_files, add_noise_with_snr, add_gaussian_noise_torch, MeasurementPulseDataset, PulseDataset
+from preprocessing import process_DB_rawdata, get_json_files, add_noise_with_snr, add_gaussian_noise_torch, MeasurementPulseDataset, PulseDataset, PulseDatasetNormalized
+from model_pulse_representation_normalized import EPGBaselinePulseAutoencoder
 import scipy
 from scipy.interpolate import interp1d
 import numpy as np
@@ -369,7 +370,7 @@ def predict_corrected_reconstructed_signal(signal, sample_rate, peaks, target_le
         signal (numpy.ndarray): 輸入信號
         sample_rate (int): 採樣率
         peaks (list): 峰值位置列表
-        target_len (int): 目標脈衝長度
+        target_len (int): 目標脈衝��度
         device (str): 使用的設備 ('cpu' 或 'cuda')
 
     Returns:
@@ -503,10 +504,97 @@ def split_json_files(json_files, train_ratio=0.9):
     split_point = int(len(json_files) * train_ratio)
     return json_files[:split_point], json_files[split_point:]
 
+
+class DisentangledPulseAutoencoder(nn.Module):
+    def __init__(self, target_len=100, hidden_dim=40, latent_dim_physical=10, latent_dim_physio=10, dropout=0.9):
+        super().__init__()
+        # Encoder for physical latent dimension
+        self.enc_physical = nn.Sequential(
+            nn.Linear(target_len, hidden_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, latent_dim_physical)
+        )
+        # Encoder for physiological latent dimension
+        self.enc_physio = nn.Sequential(
+            nn.Linear(target_len, hidden_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, latent_dim_physio)
+        )
+        # Decoder
+        self.dec = nn.Sequential(
+            nn.Linear(latent_dim_physical + latent_dim_physio, hidden_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, target_len)
+        )
+
+    def forward(self, x):
+        z_physical = self.enc_physical(x)
+        z_physio = self.enc_physio(x)
+        z = torch.cat((z_physical, z_physio), dim=1)
+        pred = self.dec(z)
+        return pred, z_physical, z_physio
+
+    def encode_physical(self, x):
+        return self.enc_physical(x)
+
+    def encode_physio(self, x):
+        return self.enc_physio(x)
+
+def train_autoencoder_with_interleaved_strategy(model, dataset, optimizer, criterion, device, epochs=1000, consistency_weight=10.0):
+    model.train()
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    measurement_dataloader = DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=lambda x: x)
+
+    for epoch in range(epochs):
+        total_loss = 0
+        consistency_loss_total = 0
+
+        # 隨機打亂來抽的訓練
+        for batch in dataloader:
+            pulse = batch.to(device)
+            optimizer.zero_grad()
+            output, z_physical, z_physio = model(pulse)
+            loss = criterion(output, pulse)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+
+        # 單獨量測檔案內的訓練
+        for measurement in measurement_dataloader:
+            pulses = torch.stack(measurement).to(device)
+            optimizer.zero_grad()
+            
+            # 固定 enc_physio 的參數
+            for param in model.enc_physio.parameters():
+                param.requires_grad = False
+
+            output, z_physical, z_physio = model(pulses)
+            
+            # 計算重構損失
+            reconstruction_loss = criterion(output, pulses)
+            
+            # 計算一致性損失
+            consistency_loss = torch.mean((z_physical - z_physical.mean(dim=0))**2)
+            consistency_loss_total += consistency_loss.item()
+            
+            # 總損失 = 重構損失 + 一致性損失 * 權重
+            total_measurement_loss = reconstruction_loss + consistency_weight * consistency_loss
+            total_measurement_loss.backward()
+            optimizer.step()
+
+            # 恢復 enc_physio 的參數可訓練性
+            for param in model.enc_physio.parameters():
+                param.requires_grad = True
+
+        print(f"Epoch [{epoch+1}/{epochs}], Total Loss: {total_loss:.4f}, Consistency Loss: {consistency_loss_total:.4f}")
+
 def main():
     input_dim = 100  # 假设每个脉冲有100个采样点
-    latent_dim_physical = 5#10
-    latent_dim_physio = 15#20
+    latent_dim_physical = 10
+    latent_dim_physio = 10
     data_folder = 'wearing_consistency'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'torch device: {device}')
@@ -517,13 +605,15 @@ def main():
     train_dataset  = MeasurementPulseDataset(train_files, input_dim)
     val_dataset = MeasurementPulseDataset(val_files, input_dim)
     print(f'train_dataset size: {len(train_dataset )}, val_dataset size: {len(val_dataset)}')
-    model = DisentangledPulseVAE(input_dim, latent_dim_physical, latent_dim_physio).to(device)
+    model = DisentangledPulseAutoencoder().to(device)
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Total number of model parameters: {trainable_params}, model:{model}') 
     # if os.path.exists('model_final.pth'):
     #     model.load_state_dict(torch.load('model_final.pth'))
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    train_model(model, train_dataset, val_dataset, num_epochs=2000, device=device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.L1Loss()
+    train_autoencoder_with_interleaved_strategy(model, train_dataset, optimizer, criterion, device, epochs=1000, consistency_weight=10.0)
 
 if __name__ == "__main__":
     main()

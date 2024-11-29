@@ -10,14 +10,18 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks, resample
 from influxDB_downloader import get_user_sessions, get_session_data, format_timestamp, sanitize_filename
 from model_find_peaks import detect_peaks_from_signal
-from model_pulse_representation import EPGBaselinePulseAutoencoder#, predict_reconstructed_signal
-from model_pulse_representation_explainable import DisentangledAutoencoder, predict_reconstructed_signal, predict_corrected_reconstructed_signal
+#from model_pulse_representation import EPGBaselinePulseAutoencoder, predict_reconstructed_signal, UNetAutoencoder
+from model_pulse_representation_normalized import EPGBaselinePulseAutoencoder, predict_reconstructed_signal
+#from model_pulse_representation_test import EPGBaselinePulseVAE, predict_reconstructed_signal_vae
+from model_pulse_representation_explainable import DisentangledAutoencoder#, predict_reconstructed_signal, predict_corrected_reconstructed_signal
 #from model_wearing_consistency_pretrained import predict_corrected_reconstructed_signal#, predict_reconstructed_signal
 import torch
 import scipy
+import shutil
 # from model_wearing_anomaly_detection import predict_reconstructed_signal, predict_reconstructed_signal2, predict_reconstructed_signal_pulse
 # from model_pulse_representation import predict_LSTM_reconstructed_signal
 from model_wearing_anomaly_detection_transformer import predict_transformer_reconstructed_signal
+from preprocessing import baseline_correction
 def find_peaks_helper(data, sample_rate, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
     peaks_top = []
     peaks_bottom = []
@@ -195,6 +199,15 @@ def find_epg_points(input_data, peaks, valleys, sample_rate):
     return results
 
 def gaussian_smooth(input, window_size, sigma):
+    # 確保窗口大小是奇數
+    window_size = int(window_size)
+    if window_size % 2 == 0:
+        window_size += 1
+    
+    # 確保窗口大小不超過數據長度
+    if window_size > len(input):
+        window_size = len(input) if len(input) % 2 != 0 else len(input) - 1
+
     half_window = window_size // 2
     output = np.zeros_like(input)
     weights = np.zeros(window_size)
@@ -227,9 +240,18 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.baseline_model3 = EPGBaselinePulseAutoencoder(100).to(self.device)
-        model_path = 'pulse_interpolate_autoencoder.pth'
-        model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
+        # self.baseline_model3 = EPGBaselinePulseAutoencoder(100, hidden_dim=40, latent_dim=16).to(self.device)
+        # model_path = 'pulse_interpolate_autoencoder.pth'
+        # model_path = 'pulse_interpolate_autoencoder_0909_30dim.pth'
+        # model_path = 'pulse_interpolate_autoencoder_1102_normalized.pth'
+        
+        model_path = 'pulse_interpolate_autoencoder_1125_normalized_test40.pth'
+        self.baseline_model3 = EPGBaselinePulseAutoencoder(target_len=100, hidden_dim=50, latent_dim=40).to(self.device)
+    
+        # self.baseline_model3 = UNetAutoencoder(target_len=128, latent_dim=20).to(self.device)
+        # model_path = 'pulse_interpolate_unet_autoencoder_1024_20dim.pth'
+        # model_path = 'pulse_interpolate_vae_1029_20dim.pth'
+        # self.baseline_model3 = EPGBaselinePulseVAE(target_len=128).to(self.device)
         self.baseline_model3.load_state_dict(torch.load(model_path))
         self.baseline_model3.eval()
 
@@ -242,25 +264,35 @@ class MainWindow(QMainWindow):
         self.resize(1200, 800)
 
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setMouseEnabled(x=True, y=False)
-        self.plot_widget.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
-        self.plot_widget.setMenuEnabled(False)
-        self.plot_widget.setClipToView(True)
-        self.plot_widget.setLabel('left', 'Amplitude')
-        self.plot_widget.setLabel('bottom', 'Sample Points Index')
-        self.plot_widget.showGrid(x=True, y=True)
         self.plot_widget.setBackground('w')
+        self.plot_widget.showGrid(x=True, y=True)
+        
+        # 啟用 X-Y 方向的縮放和平移
+        self.plot_widget.plotItem.getViewBox().setMouseMode(pg.ViewBox.RectMode)
+        
+        # 設置縮放/平移的行為
+        self.plot_widget.plotItem.getViewBox().setMouseEnabled(x=True, y=True)
+        
+        # 可選：設置縮放限制（如果需要的話）
+        # self.plot_widget.plotItem.getViewBox().setLimits(yMin=-1000, yMax=1000)
+        
+        # 可選：添加右鍵選單重置視圖的功能
+        self.plot_widget.plotItem.getViewBox().menu.addAction('Reset View').triggered.connect(
+            lambda: self.plot_widget.plotItem.getViewBox().autoRange()
+        )
 
         self.legend = pg.LegendItem()
         self.legend.setParentItem(self.plot_widget.graphicsItem())
 
         self.raw_data = []
         self.smoothed_data = []
+        self.denoised_data = []
         self.standardized_data = []
         self.smoothed_data_100hz = []
         self.reconstructed_signal = []
         self.wear_corrected_signal = []
         self.noisy_data = []
+        self.interpolated_data = []
         self.target_snr_db = 20
         self.x_points = []
         self.y_points = []
@@ -268,9 +300,6 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
-        self.w_points = []
-        self.dataType = ""
-        self.macaddress = ""
         self.anomaly_list = []
         self.selected_start_peak_idx = None
         self.selected_end_peak_idx = None
@@ -281,7 +310,7 @@ class MainWindow(QMainWindow):
         self.fft_result = np.array([])      
         self.fft_freq = np.array([])
         self.latent_vectors = []
-
+        self.target_len = 100
         self.selected_points_label = QLabel("Selected Points: []")
 
         self.file_tree_widget = QTreeWidget()
@@ -296,27 +325,20 @@ class MainWindow(QMainWindow):
         self.reload_button = QPushButton("Reload")
         self.reload_button.clicked.connect(self.reload_user_data)
 
-        self.db_folder = "DB"
-        self.labeled_db_folder = "labeled_DB"
-        self.ekgepg_db_folder = "EKGEPG_DB"
-       
-
-        file_count = self.count_files_in_directory(self.db_folder, ".json")
-        labeled_file_count = self.count_files_in_directory(self.labeled_db_folder, ".json")
-        file_count_label = QLabel(f"labeled/db: {labeled_file_count}/{file_count}")
-        
         user_id_layout = QHBoxLayout()
         user_id_layout.addWidget(QLabel("User ID:"))
         user_id_layout.addWidget(self.user_id_edit)
         user_id_layout.addWidget(self.reload_button)
-        self.current_base_folder = None  # 初始化当前基础文件夹
-        user_id_layout.addWidget(file_count_label)
+
+        self.current_base_folder = "DB"  # 初始化当前基础文件夹
+        self.db_folder = "DB"
+        self.labeled_db_folder = "labeled_DB"
         self.wearing_consistency_folder = "wearing_consistency"
         
         self.db_combo_box = QComboBox()
         self.db_combo_box.addItem("DB")
         self.db_combo_box.addItem("labeled_DB")
-        self.db_combo_box.addItem("EKGEPG_DB")
+        self.db_combo_box.addItem("wearing_consistency")
         self.db_combo_box.currentIndexChanged.connect(self.update_file_tree)
 
         file_tree_layout = QVBoxLayout()
@@ -332,17 +354,26 @@ class MainWindow(QMainWindow):
         self.checkbox_smoothed_data.setChecked(True)
         self.checkbox_smoothed_data.stateChanged.connect(self.plot_data)
 
+        # 添加去噪數據的複選框
+        self.checkbox_denoised_data = QCheckBox("Denoised Data")
+        self.checkbox_denoised_data.setChecked(True)
+        self.checkbox_denoised_data.stateChanged.connect(self.plot_data)
+
         self.checkbox_reconstructed_signal = QCheckBox("Reconstructed Data")
         self.checkbox_reconstructed_signal.setChecked(True)
         self.checkbox_reconstructed_signal.stateChanged.connect(self.plot_data)
 
         self.checkbox_wear_corrected_signal = QCheckBox("Wear Corrected Signal")
-        self.checkbox_wear_corrected_signal.setChecked(True)
+        self.checkbox_wear_corrected_signal.setChecked(False)
         self.checkbox_wear_corrected_signal.stateChanged.connect(self.plot_data)
 
         self.checkbox_noisy_data = QCheckBox("Noisy Data")
         self.checkbox_noisy_data.setChecked(False)
         self.checkbox_noisy_data.stateChanged.connect(self.plot_data)
+
+        self.checkbox_interpolated_data = QCheckBox("Interpolated Data (100 points)")
+        self.checkbox_interpolated_data.setChecked(False)
+        self.checkbox_interpolated_data.stateChanged.connect(self.plot_data)
 
         self.resample_noise_button = QPushButton("Resample Noise")
         self.resample_noise_button.clicked.connect(self.resample_noise)
@@ -370,14 +401,14 @@ class MainWindow(QMainWindow):
         self.checkbox_c_points = QCheckBox("C Points")
         self.checkbox_c_points.setChecked(False)
         self.checkbox_c_points.stateChanged.connect(self.plot_data)
-        
-        self.checkbox_w_points = QCheckBox("W Points")
-        self.checkbox_w_points.setChecked(False)
-        self.checkbox_w_points.stateChanged.connect(self.plot_data)
+
+
 
         checkbox_layout = QVBoxLayout()
         checkbox_layout.addWidget(self.checkbox_raw_data)
         checkbox_layout.addWidget(self.checkbox_smoothed_data)
+        checkbox_layout.addWidget(self.checkbox_denoised_data)
+        checkbox_layout.addWidget(self.checkbox_interpolated_data)
         checkbox_layout.addWidget(self.checkbox_noisy_data)
         checkbox_layout.addWidget(self.checkbox_reconstructed_signal)
         checkbox_layout.addWidget(self.checkbox_wear_corrected_signal)
@@ -387,7 +418,6 @@ class MainWindow(QMainWindow):
         checkbox_layout.addWidget(self.checkbox_a_points)
         checkbox_layout.addWidget(self.checkbox_b_points)
         checkbox_layout.addWidget(self.checkbox_c_points)
-        checkbox_layout.addWidget(self.checkbox_w_points)
         checkbox_layout.addWidget(self.resample_noise_button)
 
         self.x_points_edit = QLineEdit()
@@ -413,12 +443,13 @@ class MainWindow(QMainWindow):
         self.c_points_edit = QLineEdit()
         self.c_points_edit.setPlaceholderText("C Points")
         self.c_points_edit.textChanged.connect(self.update_c_points_from_edit)
-        
-        self.w_points_edit = QLineEdit()
-        self.w_points_edit.setPlaceholderText("W Points")
-        self.w_points_edit.textChanged.connect(self.update_w_points_from_edit)
 
         points_layout = QVBoxLayout()
+        # Add new button to copy stable measurements
+        self.copy_to_wearing_button = QPushButton("Copy to Wearing Consistency")
+        self.copy_to_wearing_button.clicked.connect(self.copy_to_wearing_consistency)
+        self.copy_to_wearing_button.setEnabled(False)  # Initially disabled
+        points_layout.addWidget(self.copy_to_wearing_button)
 
         # 添加新的UI元素
         self.pulse_index_label = QLabel("Pulse: N/A")
@@ -448,18 +479,25 @@ class MainWindow(QMainWindow):
         points_layout.addWidget(QLabel("Latent Vector:"))
         points_layout.addWidget(self.latent_vector_display)
 
-        self.anomaly_text_edit = QTextEdit()
-        self.anomaly_text_edit.setReadOnly(True)
-        points_layout.addWidget(QLabel("Anomaly Segment Labeling (按住Control鍵之後用左鍵依序選取頭尾的peak點或是整筆量測的首尾點):"))
+        # self.anomaly_text_edit = QTextEdit()
+        # self.anomaly_text_edit.setReadOnly(True)
+        # points_layout.addWidget(QLabel("Anomaly Segment Labeling (按住Control鍵之後用左鍵依序選取頭尾的peak點或是整筆量測的首尾點):"))
 
-        anomaly_text_layout = QHBoxLayout()
-        anomaly_text_layout.addWidget(self.anomaly_text_edit)
+        # anomaly_text_layout = QHBoxLayout()
+        # anomaly_text_layout.addWidget(self.anomaly_text_edit)
 
-        self.clear_anomaly_button = QPushButton("Clear")
-        self.clear_anomaly_button.clicked.connect(self.clear_anomaly_labels)
-        anomaly_text_layout.addWidget(self.clear_anomaly_button)
-        points_layout.addLayout(anomaly_text_layout)
-        
+        # self.clear_anomaly_button = QPushButton("Clear")
+        # self.clear_anomaly_button.clicked.connect(self.clear_anomaly_labels)
+        # anomaly_text_layout.addWidget(self.clear_anomaly_button)
+        # points_layout.addLayout(anomaly_text_layout)
+        self.stats_label = QLabel()
+        points_layout.addWidget(QLabel("Signal Statistics:"))
+        points_layout.addWidget(self.stats_label)
+
+        self.recalculate_x_button = QPushButton("Recalculate X Points")
+        self.recalculate_x_button.clicked.connect(self.recalculate_x_points)
+        points_layout.addWidget(self.recalculate_x_button)
+
         self.recalculate_y_button = QPushButton("Recalculate Y Points")
         self.recalculate_y_button.clicked.connect(self.recalculate_y_points)
         points_layout.addWidget(self.recalculate_y_button)
@@ -469,21 +507,19 @@ class MainWindow(QMainWindow):
         points_layout.addWidget(self.recalculate_zabc_button)
 
         points_layout.addWidget(self.selected_points_label)
-        points_layout.addWidget(QLabel("Points Index:"))
-        points_layout.addWidget(QLabel("X Points:"))
-        points_layout.addWidget(self.x_points_edit)
-        points_layout.addWidget(QLabel("Y Points:"))
-        points_layout.addWidget(self.y_points_edit)
-        points_layout.addWidget(QLabel("Z Points:"))
-        points_layout.addWidget(self.z_points_edit)
-        points_layout.addWidget(QLabel("A Points:"))
-        points_layout.addWidget(self.a_points_edit)
-        points_layout.addWidget(QLabel("B Points:"))
-        points_layout.addWidget(self.b_points_edit)
-        points_layout.addWidget(QLabel("C Points:"))
-        points_layout.addWidget(self.c_points_edit)
-        points_layout.addWidget(QLabel("W Points:"))
-        points_layout.addWidget(self.w_points_edit)
+        # points_layout.addWidget(QLabel("Points Index:"))
+        # points_layout.addWidget(QLabel("X Points:"))
+        # points_layout.addWidget(self.x_points_edit)
+        # points_layout.addWidget(QLabel("Y Points:"))
+        # points_layout.addWidget(self.y_points_edit)
+        # points_layout.addWidget(QLabel("Z Points:"))
+        # points_layout.addWidget(self.z_points_edit)
+        # points_layout.addWidget(QLabel("A Points:"))
+        # points_layout.addWidget(self.a_points_edit)
+        # points_layout.addWidget(QLabel("B Points:"))
+        # points_layout.addWidget(self.b_points_edit)
+        # points_layout.addWidget(QLabel("C Points:"))
+        # points_layout.addWidget(self.c_points_edit)
 
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save_labeled_data)
@@ -541,6 +577,14 @@ class MainWindow(QMainWindow):
         select_folder_action.triggered.connect(self.select_folder)
         file_menu.addAction(select_folder_action)
 
+    def on_db_changed(self, index):
+        if index == 0:
+            self.current_base_folder = "DB"
+        elif index == 1:
+           self.current_base_folder = "labeled_DB"
+        elif index == 2:
+            self.current_base_folder = "wearing_consistency"
+            
     def select_folder(self):
         options = QFileDialog.Options()
         options |= QFileDialog.ShowDirsOnly
@@ -588,10 +632,10 @@ class MainWindow(QMainWindow):
     def calculate_latent_vector(self, pulse):
         if len(pulse) > 1:
             
-            # 标准化
+            # 标���化
             # pulse_normalized = (pulse - np.mean(pulse)) / np.std(pulse)
             
-            target_len = 100
+            target_len = self.target_len
             interp_func = scipy.interpolate.interp1d(np.arange(len(pulse)), pulse, kind='linear')
             pulse_resampled = interp_func(np.linspace(0, len(pulse) - 1, target_len))
             pulse_tensor = torch.tensor(pulse_resampled, dtype=torch.float32).unsqueeze(0).to(self.device)
@@ -601,6 +645,56 @@ class MainWindow(QMainWindow):
             
             return latent_vector.squeeze().cpu().numpy()
         return None
+
+    def is_measurement_stable(self, data):
+        # """Check if the measurement is stable based on anomaly list"""
+        # if not hasattr(self, 'anomaly_list') or not self.anomaly_list:
+        #     return True  # If no anomalies are marked, consider it stable
+            
+        # # Consider measurement unstable if it has any anomalies marked as 
+        # # "noise", "moving", or "not sure"
+        # unstable_types = {"noise", "moving", "not sure"}
+        # for _, _, wearing_status in self.anomaly_list:
+        #     if wearing_status in unstable_types:
+        #         return False
+                
+        return True
+
+    def copy_to_wearing_consistency(self):
+        if not self.current_relative_path:
+            QMessageBox.warning(self, "Warning", "No file currently selected")
+            return
+            
+        # Check if current data is stable
+        if not self.is_measurement_stable(self.smoothed_data):
+            response = QMessageBox.question(
+                self,
+                "Unstable Measurement",
+                "This measurement contains marked instabilities. Do you still want to copy it?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if response == QMessageBox.No:
+                return
+        
+        # Create target directory with same structure
+        source_path = os.path.join("labeled_DB", self.current_relative_path)
+        target_path = os.path.join("wearing_consistency", self.current_relative_path)
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        
+        try:
+            # Copy the file
+            shutil.copy2(source_path, target_path)
+            QMessageBox.information(
+                self,
+                "Success",
+                f"File successfully copied to wearing_consistency folder"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to copy file: {str(e)}"
+            )
 
     def init_fft_tab(self):
         self.fft_plot_widget = pg.PlotWidget()
@@ -628,18 +722,7 @@ class MainWindow(QMainWindow):
 
         self.fft_tab = QWidget()
         self.fft_tab.setLayout(fft_layout)
-        
-    def count_files_in_directory(self, directory, file_extension):
-        total_count = 0
-        icp_count = 0
-        for root, dirs, files in os.walk(directory):
-            for file in files:
-                if file.endswith(file_extension):
-                    total_count += 1
-                    if "icp" in file.lower() or "ccp" in file.lower():
-                      icp_count += 1
-        return total_count,icp_count
-    
+
     def on_fft_mouse_move(self, event):
         if len(self.fft_freq) == 0:
             return
@@ -748,8 +831,6 @@ class MainWindow(QMainWindow):
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"B Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                     elif x in self.c_points:
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"C Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
-                    elif x in self.w_points:
-                        QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"C Point\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                     else:
                         QToolTip.showText(self.plot_widget.mapToGlobal(pos.toPoint()), f"Signal\nIndex: {x}\nValue: {self.smoothed_data[x]:.4f}")
                 else:
@@ -805,23 +886,6 @@ class MainWindow(QMainWindow):
                     self.plot_data()
         elif event.button() == Qt.RightButton:
             self.plot_widget.plotItem.vb.autoRange()
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_X:
-            self.label_selected_points('x')
-        elif event.key() == Qt.Key_Y:
-            self.label_selected_points('y')
-        elif event.key() == Qt.Key_Z:
-            self.label_selected_points('z')
-        elif event.key() == Qt.Key_A:
-            self.label_selected_points('a')
-        elif event.key() == Qt.Key_B:
-            self.label_selected_points('b')
-        elif event.key() == Qt.Key_C:
-            self.label_selected_points('c')
-        elif event.key() == Qt.Key_W:
-            self.label_selected_points('w')
-        elif event.key() == Qt.Key_Space:
-            self.remove_selected_points()
 
     def label_selected_points(self, label):
         for point in self.selected_points:
@@ -844,9 +908,6 @@ class MainWindow(QMainWindow):
             elif label == 'c':
                 self.c_points.append(point)
                 self.c_points.sort()
-            elif label == 'w':
-                self.w_points.append(point)
-                self.w_points.sort()
         self.selected_points.clear()
         self.update_selected_points_label()
         self.update_points_edit()
@@ -866,8 +927,6 @@ class MainWindow(QMainWindow):
                 self.b_points.remove(point)
             elif point in self.c_points:
                 self.c_points.remove(point)
-            elif point in self.w_points:
-                self.w_points.remove(point)
 
 
     def remove_selected_points(self):
@@ -896,48 +955,31 @@ class MainWindow(QMainWindow):
             "a_points": self.a_points,
             "b_points": self.b_points,
             "c_points": self.c_points,
-            "w_points": self.w_points,
             "sample_rate": self.sample_rate,
             "anomaly_list": self.anomaly_list,
-            "dataType": self.dataType,
-            "macaddress": self.macaddress
-            
             # 這裡可以添加更多需要保存的數據
         }
-        
-        def convert_np_types(obj):
-            if isinstance(obj, np.integer):
-                return int(obj)
-            elif isinstance(obj, np.floating):
-                return float(obj)
-            elif isinstance(obj, np.ndarray):
-                return obj.tolist()
-            elif isinstance(obj, dict):
-                return {k: convert_np_types(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_np_types(i) for i in obj]
-            else:
-                return obj
-        
-        converted_data = convert_np_types(data)
-        
-        # print('Saving labeled data:', data)
+        print('Saving labeled data:', data)
         with open(target_path, 'w') as f:
-            json.dump(converted_data, f, indent=4)
+            json.dump(data, f, indent=4)
         
         print("Saved labeled data to:", target_path)
 
-    
-    
+
     def update_file_tree(self, index):
         if index == 0:
             self.current_base_folder = self.db_folder
             self.load_db_files(self.db_folder)
         elif index == 1:
+            self.current_base_folder = self.labeled_db_folder
             self.load_db_files(self.labeled_db_folder)
-        else:
-            self.load_db_files(self.ekgepg_db_folder)
+        elif index == 2:
+            self.current_base_folder = self.wearing_consistency_folder
+            self.load_db_files(self.wearing_consistency_folder)
 
+        self.copy_to_wearing_button.setEnabled(
+            self.db_combo_box.currentText() == "labeled_DB"
+        )
     def load_db_files(self, db_folder = "DB"):
         
         self.file_tree_widget.clear()
@@ -956,26 +998,57 @@ class MainWindow(QMainWindow):
                 file_item.setText(0, item)
 
     def load_selected_file(self, item, column):
-        if item.childCount() == 0:  # 如果選擇的是檔案
-            self.clear_data()
+        if item.childCount() == 0:  # 如果选择的是文件
+            self.clear_data()  # 確保清除舊數據
             file_path = self.get_file_path(item)
             
-            with open(file_path, 'r', encoding='utf-8') as file:
-                data = json.load(file)
+            if file_path is None:
+                print("错误：无法取有效的文件路径")
+                return
+            
+            if not os.path.exists(file_path):
+                print(f"错误：文件不存在 - {file_path}")
+                return
+            
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    data = json.load(file)
+            except UnicodeDecodeError:
+                # 如果 UTF-8 失败，尝试其他编码
+                encodings = ['utf-8-sig', 'gbk', 'big5', 'ascii']
+                for encoding in encodings:
+                    try:
+                        with open(file_path, 'r', encoding=encoding) as file:
+                            data = json.load(file)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                else:
+                    print(f"无法解码文件: {file_path}")
+                    return
             
             if self.db_combo_box.currentIndex() == 0:  # DB
                 self.current_relative_path = os.path.relpath(file_path, "DB")
                 self.anomaly_list = []
                 self.process_data(data)
-            elif self.db_combo_box.currentIndex() == 1:  # labeled_DB
+            else:  # labeled_DB
                 self.current_relative_path = os.path.relpath(file_path, "labeled_DB")
                 self.load_labeled_data(data)
-            else:
-                self.current_relative_path = os.path.relpath(file_path, "EKGEPG_DB")
-                self.load_labeled_data(data)
+            
+            wearing_consistency_path = os.path.join("wearing_consistency", self.current_relative_path)
+            # 只有在labeled_DB中且目標文件不存在時才啟用複製按鈕
+            self.copy_to_wearing_button.setEnabled(
+                self.db_combo_box.currentText() == "labeled_DB" and 
+                not os.path.exists(wearing_consistency_path)
+            )
 
+            # 確保在加載新文件後重新計算 reconstructed_signal
+            self.reconstructed_signal = predict_reconstructed_signal(
+                self.smoothed_data, self.sample_rate, self.x_points
+            )
+            
             self.selected_points.clear()  # 清空Selected Point
-            self.update_selected_points_label()  # 更新Selected Point的顯示
+            self.update_selected_points_label()  # 更新Selected Point的显示
             self.update_points_edit()
             self.plot_data()
 
@@ -1001,6 +1074,7 @@ class MainWindow(QMainWindow):
 
     def load_labeled_data(self, data):
         self.raw_data = data['raw_data'] if 'raw_data' in data else []
+        self.denoise()
         self.smoothed_data = data['smoothed_data'] if 'smoothed_data' in data else []
         #標準化
         self.standardized_data = (self.smoothed_data - np.mean(self.smoothed_data)) / np.std(self.smoothed_data)
@@ -1012,9 +1086,6 @@ class MainWindow(QMainWindow):
         self.a_points = data['a_points'] if 'a_points' in data else []
         self.b_points = data['b_points'] if 'b_points' in data else []
         self.c_points = data['c_points'] if 'c_points' in data else []
-        self.w_points = data['w_points'] if 'w_points' in data else []
-        self.macaddress = data['macaddress'] if 'macaddress' in data else ""
-        self.dataType = data['dataType'] if 'dataType' in data else "EPG"
         self.anomaly_list = data['anomaly_list'] if 'anomaly_list' in data else []
 
     def clear_anomaly_labels(self):
@@ -1025,6 +1096,7 @@ class MainWindow(QMainWindow):
     def clear_data(self):
         self.raw_data = []
         self.smoothed_data = []
+        self.denoised_data = []
         self.standardized_data = []
         self.smoothed_data_100hz = []
         self.x_points = []
@@ -1033,36 +1105,100 @@ class MainWindow(QMainWindow):
         self.a_points = []
         self.b_points = []
         self.c_points = []
-        self.w_points = []
-        self.dataType = ""
-        self.macaddress = ""
+
+    def calculate_interpolation_error(self):
+        if len(self.smoothed_data) > 0 and len(self.interpolated_data) == 100:
+            x_original = np.arange(len(self.smoothed_data))
+            x_interp = np.linspace(0, len(self.smoothed_data) - 1, 100)
+            interpolated_full = np.interp(x_original, x_interp, self.interpolated_data)
+            rmse = np.sqrt(np.mean((self.smoothed_data - interpolated_full) ** 2))
+            print(f"Interpolation RMSE: {rmse}")
+
+    def denoise(self):
+        self.denoised_data = baseline_correction(self.raw_data, self.sample_rate)
+        raw_mean = np.mean(self.raw_data)
+        raw_std = np.std(self.raw_data)
+        denoised_mean = np.mean(self.denoised_data)
+        denoised_std = np.std(self.denoised_data)
         
+        # 更新統計信息顯示
+        stats_text = (f"Raw Signal - Mean: {raw_mean:.4f}, Std: {raw_std:.4f}\n"
+                     f"Denoised Signal - Mean: {denoised_mean:.4f}, Std: {denoised_std:.4f}")
+        self.stats_label.setText(stats_text)        
+
     def process_data(self, data):
-        self.raw_data = [-value for packet in data['raw_data'] for value in packet['datas']]
-        self.userID = data['user_id']
-        self.sample_rate = data['sample_rate']
-        self.dataType = data['dataType']
-        self.macaddress = data['macaddress']
+        self.raw_data = [-value for packet in data['raw_data'] for value in packet['datas']] if 'raw_data' in data else [-value for sublist in data['data'] for value in sublist]
+        self.userID = data['user_id'] if 'user_id' in data else 202
+        self.sample_rate = data['sample_rate'] if 'sample_rate' in data else 100
         print(f'Sample_rate: {self.sample_rate}')
-        scale = int(3 * self.sample_rate / 100)
-        self.smoothed_data = gaussian_smooth(self.raw_data, scale, scale/4)
+        self.denoise()
+
+        # scale = int(3 * self.sample_rate / 100)
+        scale = max(10, self.sample_rate / 100 * 10)  # 根據採樣率調整窗口大小
+        sigma = scale / 4
+        self.smoothed_data = gaussian_smooth(self.raw_data, scale, sigma)
         self.standardized_data = (self.smoothed_data - np.mean(self.smoothed_data)) / np.std(self.smoothed_data)
-        if len(self.smoothed_data) > 0 : 
+        if len(self.smoothed_data) > 0 :
+            self.find_peaks_and_valleys(self.smoothed_data, int(self.sample_rate))#, 0.3, 0.9, 0.3, 0.03, 0.03, "on_peak", 0.06)
+
+            # self.resample_pulses()
+            # self.restore_signal()
+            # main_signal_start = self.x_points[0]
+            # main_signal_end = self.x_points[-1]
+            # main_smoothed = self.smoothed_data[main_signal_start:main_signal_end]
+            # main_interpolated = self.interpolated_data[main_signal_start:main_signal_end]
+            # rmse = np.sqrt(np.mean((main_smoothed - main_interpolated) ** 2))
+            # print(f"Interpolation RMSE: {rmse}")
+            
             self.smoothed_data_100hz = resample(self.smoothed_data, int(len(self.smoothed_data) * 100 // self.sample_rate))
             self.window_start_slider.setMaximum(len(self.smoothed_data_100hz) - self.window_size)
             self.window_start_slider.setValue(0)
             self.update_fft_plot()
 
-            self.find_peaks_and_valleys(self.smoothed_data, int(self.sample_rate))#, 0.3, 0.9, 0.3, 0.03, 0.03, "on_peak", 0.06)
             self.update_latent_vector()
             # self.reconstructed_signal = predict_transformer_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
-            # self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            self.reconstructed_signal = predict_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
+            print(f'len(self.reconstructed_signal): {len(self.reconstructed_signal)}, len(self.smoothed_data): {len(self.smoothed_data)}')
             # self.wear_corrected_signal = predict_corrected_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
 
             # self.reconstructed_signal = reconstruct_pulse_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
             # self.reconstructed_signal = predict_reconstructed_signal2(self.smoothed_data, int(self.sample_rate)) #predict_reconstructed_signal_pulse(self.smoothed_data, int(self.sample_rate), self.x_points)
             # self.reconstructed_signal = predict_LSTM_reconstructed_signal(self.smoothed_data, int(self.sample_rate), self.x_points)
         self.find_points()
+
+    def resample_pulses(self):
+        self.resampled_pulses = []
+        print(f'len(self.x_points): {len(self.x_points)}')
+        for i in range(len(self.x_points) - 1):
+            start = self.x_points[i]
+            end = self.x_points[i + 1]
+            pulse = self.smoothed_data[start:end]
+            if len(pulse) > 1:
+                interp_func = scipy.interpolate.interp1d(np.arange(len(pulse)), pulse, kind='linear')
+                pulse_resampled = interp_func(np.linspace(0, len(pulse) - 1, self.target_len))
+                self.resampled_pulses.append(pulse_resampled)
+    def restore_signal(self):
+        self.interpolated_data = []  # 重置interpolated_data
+        self.interpolated_data.extend(self.smoothed_data[:self.x_points[0]])
+        
+        for i in range(len(self.x_points) - 1):
+            start = self.x_points[i]
+            end = self.x_points[i+1]
+            original_len = end - start
+            pulse_resampled = self.resampled_pulses[i]
+            
+            interp_func = scipy.interpolate.interp1d(np.linspace(0, 99, self.target_len), pulse_resampled, kind='linear', fill_value="extrapolate")
+            restored_pulse = interp_func(np.linspace(0, 99, original_len))
+            self.interpolated_data.extend(restored_pulse)
+        
+        # 添加最后一个脉冲之后的数据
+        self.interpolated_data.extend(self.smoothed_data[self.x_points[-1]:])
+        
+        
+        # 确保长度一致
+        if len(self.interpolated_data) != len(self.smoothed_data):
+            print("Warning: interpolated_data length does not match smoothed_data length")
+            print(f"Difference: {len(self.interpolated_data) - len(self.smoothed_data)}")
 
     def update_latent_vector(self):
         self.encode_pulses()
@@ -1077,7 +1213,7 @@ class MainWindow(QMainWindow):
             pulse = self.smoothed_data[start:end]
             
             # 插值到目标长度
-            target_len = 100
+            target_len = self.target_len
             if len(pulse) > 1:
                 interp_func = scipy.interpolate.interp1d(np.arange(len(pulse)), pulse, kind='linear')
                 pulse_resampled = interp_func(np.linspace(0, len(pulse) - 1, target_len))
@@ -1106,6 +1242,9 @@ class MainWindow(QMainWindow):
                 time_diff = end_time - start_time
                 
                 # 格式化 latent vector 显示
+                vector_str = " ".join(f"<span style='display:inline-block; width:50px;'>{v:.4f}</span>" for v in latent_vector)
+                display_text = f"Time length = {time_diff:.2f} ({start_time:.2f}s - {end_time:.2f}s)<br>{vector_str}"
+                
                 vector_str = " ".join(f"{v:.4f}" for v in latent_vector)
                 display_text = f"Time length = {time_diff:.2f} ({start_time:.2f}s - {end_time:.2f}s)\n{vector_str}"
                 
@@ -1119,18 +1258,23 @@ class MainWindow(QMainWindow):
                                                 
 
     def get_file_path(self, item):
-        path = [item.text(0)]
-        while item.parent():
-            item = item.parent()
+        path = []
+        while item:
             path.append(item.text(0))
+            item = item.parent()
         path.reverse()
-        if self.db_combo_box.currentIndex() == 0:  # DB
-            return os.path.join(self.db_folder, *path)
-        elif self.db_combo_box.currentIndex() == 1:  # labeled_DB
-            return os.path.join(self.labeled_db_folder, *path)
-        else:
-            return os.path.join(self.ekgepg_db_folder, *path)
-            
+        
+        if self.current_base_folder is None:
+            print("错误：current_base_folder 未设置")
+            return None
+        
+        if not path:
+            print("错误：无法获取文件路径")
+            return None
+        
+        full_path = os.path.join(self.current_base_folder, *path)
+        print(f"构建的文件路径: {full_path}")  # 调试输出
+        return full_path
         
     def find_peaks_and_valleys(self, data, sample_rate):#, drop_rate, drop_rate_gain, timer_init, timer_peak_refractory_period, peak_refinement_window, Vpp_method, Vpp_threshold):
         # peaks_top, peaks_bottom, envelope_plot_top, envelope_plot_bottom, Vpp_plot = find_peaks_helper(
@@ -1158,7 +1302,11 @@ class MainWindow(QMainWindow):
                 if c != -1:
                     self.c_points.append(c)
 
-
+    def recalculate_x_points(self):
+        if len(self.smoothed_data) > 0:
+            self.x_points = detect_peaks_from_signal(self.smoothed_data, self.sample_rate)
+            self.update_points_edit()
+            self.plot_data()
 
     def recalculate_y_points(self):
         if len(self.smoothed_data) > 0 and len(self.x_points) > 0:
@@ -1173,7 +1321,6 @@ class MainWindow(QMainWindow):
             self.a_points = []
             self.b_points = []
             self.c_points = []
-            self.w_points = []
 
             results = find_epg_points(self.smoothed_data, self.x_points, self.y_points, self.sample_rate)
             for result in results:
@@ -1188,11 +1335,11 @@ class MainWindow(QMainWindow):
                         self.b_points.append(b)
                     if c != -1:
                         self.c_points.append(c)
-                    
 
             self.update_points_edit()
             self.plot_data()
             self.clear_anomaly_segments()
+
 
 
 
@@ -1203,7 +1350,6 @@ class MainWindow(QMainWindow):
         self.a_points_edit.setText(', '.join(map(str, self.a_points)))
         self.b_points_edit.setText(', '.join(map(str, self.b_points)))
         self.c_points_edit.setText(', '.join(map(str, self.c_points)))
-        self.w_points_edit.setText(', '.join(map(str, self.w_points)))
             
     def update_x_points_from_edit(self):
         try:
@@ -1246,13 +1392,6 @@ class MainWindow(QMainWindow):
             self.plot_data()
         except ValueError as e:
             print(f'ValueError: {e}')
-            
-    def update_w_points_from_edit(self):
-        try:
-            self.w_points = [int(w) for w in self.w_points_edit.text().split(',') if w.strip()]
-            self.plot_data()
-        except ValueError as e:
-            print(f'ValueError: {e}')
 
     def label_anomaly(self):
         if self.selected_start_peak_idx is not None and self.selected_end_peak_idx is not None:
@@ -1282,7 +1421,6 @@ class MainWindow(QMainWindow):
             self.a_points = [a for a in self.a_points if a < start_x or a > end_x]
             self.b_points = [b for b in self.b_points if b < start_x or b > end_x]
             self.c_points = [c for c in self.c_points if c < start_x or c > end_x]
-            self.w_points = [w for w in self.w_points if w < start_x or w > end_x]
 
             self.update_points_edit()
 
@@ -1340,7 +1478,8 @@ class MainWindow(QMainWindow):
         if len(self.smoothed_data) > 0:
             self.noisy_data = self.add_gaussian_noise_numpy(self.smoothed_data)#self.add_noise_with_snr(self.smoothed_data, self.target_snr_db)
             self.plot_data()
-        
+
+   
 
     def plot_data(self):
         self.plot_widget.clear()
@@ -1350,6 +1489,13 @@ class MainWindow(QMainWindow):
 
         if self.checkbox_smoothed_data.isChecked():
             self.plot_widget.plot(self.smoothed_data, pen=pg.mkPen(color=(0, 0, 255), width=2), name='Smoothed Data')
+
+        if self.checkbox_denoised_data.isChecked():
+            denoised_plot = self.plot_widget.plot(self.denoised_data, pen='r', name='Denoised Data')
+            self.legend.addItem(denoised_plot, 'Denoised Data')
+            
+        if self.checkbox_interpolated_data.isChecked() and len(self.interpolated_data) > 0:
+            self.plot_widget.plot(self.interpolated_data, pen=pg.mkPen(color=(255, 0, 255), width=2), name='Interpolated Data (100 points)')
 
         if self.checkbox_reconstructed_signal.isChecked():
             self.plot_widget.plot(self.reconstructed_signal, pen=pg.mkPen(color=(100, 155, 255), width=2), name='Reconstructed Data')
@@ -1382,31 +1528,27 @@ class MainWindow(QMainWindow):
 
         if self.checkbox_x_points.isChecked():
             x_points_in_range = [i for i in self.x_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(0, 0, 0), symbolSize=15, name='X Points')
+            self.plot_widget.plot(x_points_in_range, [self.smoothed_data[i] for i in x_points_in_range], pen=None, symbol='o', symbolBrush=(255, 255, 0), symbolSize=7, name='X Points')
 
         if self.checkbox_y_points.isChecked():
             y_points_in_range = [i for i in self.y_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(y_points_in_range, [self.smoothed_data[i] for i in y_points_in_range], pen=None, symbol='o', symbolBrush=(0, 255, 255), symbolSize=15, name='Y Points')
+            self.plot_widget.plot(y_points_in_range, [self.smoothed_data[i] for i in y_points_in_range], pen=None, symbol='o', symbolBrush=(0, 255, 255), symbolSize=7, name='Y Points')
 
         if self.checkbox_z_points.isChecked():
             z_points_in_range = [i for i in self.z_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(z_points_in_range, [self.smoothed_data[i] for i in z_points_in_range], pen=None, symbol='o', symbolBrush=(255, 0, 255), symbolSize=15, name='Z Points')
+            self.plot_widget.plot(z_points_in_range, [self.smoothed_data[i] for i in z_points_in_range], pen=None, symbol='o', symbolBrush=(255, 0, 255), symbolSize=7, name='Z Points')
 
         if self.checkbox_a_points.isChecked():
             a_points_in_range = [i for i in self.a_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(a_points_in_range, [self.smoothed_data[i] for i in a_points_in_range], pen=None, symbol='o', symbolBrush=(128, 0, 128), symbolSize=15, name='A Points')
+            self.plot_widget.plot(a_points_in_range, [self.smoothed_data[i] for i in a_points_in_range], pen=None, symbol='o', symbolBrush=(128, 0, 128), symbolSize=7, name='A Points')
 
         if self.checkbox_b_points.isChecked():
             b_points_in_range = [i for i in self.b_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(b_points_in_range, [self.smoothed_data[i] for i in b_points_in_range], pen=None, symbol='o', symbolBrush=(128, 128, 0), symbolSize=15, name='B Points')
+            self.plot_widget.plot(b_points_in_range, [self.smoothed_data[i] for i in b_points_in_range], pen=None, symbol='o', symbolBrush=(128, 128, 0), symbolSize=7, name='B Points')
 
         if self.checkbox_c_points.isChecked():
             c_points_in_range = [i for i in self.c_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(c_points_in_range, [self.smoothed_data[i] for i in c_points_in_range], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=15, name='C Points')
-            
-        if self.checkbox_w_points.isChecked():
-            w_points_in_range = [i for i in self.w_points if 0 <= i < len(self.smoothed_data)]
-            self.plot_widget.plot(w_points_in_range, [self.smoothed_data[i] for i in w_points_in_range], pen=None, symbol='o', symbolBrush=(255, 127, 80), symbolSize=15, name='W Points')
+            self.plot_widget.plot(c_points_in_range, [self.smoothed_data[i] for i in c_points_in_range], pen=None, symbol='o', symbolBrush=(0, 128, 128), symbolSize=7, name='C Points')
 
         self.legend.clear()
         for item in self.plot_widget.listDataItems():
@@ -1421,10 +1563,6 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
