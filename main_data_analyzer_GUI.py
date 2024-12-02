@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+from natsort import natsorted
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QSlider, QFileDialog, QTabWidget, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QLineEdit, QTextEdit, QToolTip
 from PyQt5.QtGui import QMouseEvent, QColor
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint
@@ -196,7 +197,8 @@ def find_epg_points(input_data, peaks, valleys, sample_rate):
 def gaussian_smooth(input, window_size, sigma):
     half_window = window_size // 2
     output = np.zeros_like(input)
-    weights = np.zeros(window_size)
+    #weights = np.zeros(window_size)
+    weights = np.zeros(2 * half_window + 1)
     weight_sum = 0
 
     # Calculate Gaussian weights
@@ -874,7 +876,8 @@ class MainWindow(QMainWindow):
         
 
     def populate_tree(self, folder, parent):
-        for item in os.listdir(folder):
+        #for item in os.listdir(folder):
+        for item in natsorted(os.listdir(folder)):
             item_path = os.path.join(folder, item)
             if os.path.isdir(item_path):
                 folder_item = QTreeWidgetItem(parent)

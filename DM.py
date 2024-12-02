@@ -7,9 +7,10 @@ import math
 import matplotlib.pyplot as pyplot
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score,calinski_harabasz_score
 from scipy.spatial.distance import cdist
 from scipy.sparse import diags
-from scipy.linalg import svd
+from scipy.linalg import svd  
 from collections import defaultdict
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -88,7 +89,7 @@ def DMapRoseland_redo(X, Dim, ep=None, m=None):
 
 def handle_DM():
     # 指定資料夾路徑
-    folder_path = 'latent_vectors_0727/'
+    folder_path = 'latent_vectors_0727_outlier'
 
     # 獲取資料夾中所有 h5 檔案的列表
     file_list = [f for f in os.listdir(folder_path) if f.endswith('.h5')]
@@ -168,7 +169,7 @@ def handle_DM():
 
     # 保存為 CSV 文件
     output_df = pd.DataFrame(output_matrix)
-    output_df.to_csv('U_large_name.csv', index=False, header=False)
+    output_df.to_csv('U_large_name_with_outlier.csv', index=False, header=False)
 
     # 檢查檔案是否存在
     if os.path.exists('U_large_name.csv'):
@@ -190,7 +191,17 @@ def show_data():
     json_files = get_json_files(data_folder, exclude_keywords=[])
 
     # 讀取 CSV 檔案
+    #df = pd.read_csv('U_large_name_with_outlier.csv', header=None, names=['X', 'Y', 'Z', 'W', 'id'])
     df = pd.read_csv('U_large_name.csv', header=None, names=['X', 'Y', 'Z', 'W', 'id'])
+
+    # 計算 Silhouette Score and Calinski-Harabasz Score
+    coordinates = df.iloc[:, :3].values  # 前三維當作空間中的座標 
+    labels = df.iloc[:, 4].values  # 第五列當作群集標籤
+    sil_score = silhouette_score(coordinates, labels)
+    ch_score = calinski_harabasz_score(coordinates, labels)
+    print(f'Silhouette Score: {sil_score}')
+    print(f'Calinski-Harabasz Score: {ch_score}')
+
 
     # 確保 id 欄位是字符串類型
     df['id'] = df['id'].astype(str)
