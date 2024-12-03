@@ -8,3 +8,4 @@ peak_detection_env/*
 latent_vectors*/*
 ios_data/*
 head_hand_DB/*
+encoded_pulse_sequences_40/*

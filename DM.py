@@ -89,7 +89,8 @@ def DMapRoseland_redo(X, Dim, ep=None, m=None):
 
 def handle_DM():
     # 指定資料夾路徑
-    folder_path = 'latent_vectors_0727_outlier'
+    #folder_path = 'latent_vectors_0727_outlier'
+    folder_path = 'encoded_pulse_sequences_40'
 
     # 獲取資料夾中所有 h5 檔案的列表
     file_list = [f for f in os.listdir(folder_path) if f.endswith('.h5')]
@@ -147,7 +148,7 @@ def handle_DM():
     print(f"堆疊後的數據形狀: {data.shape}")
 
     # 確認資料大小正確
-    if data.shape[1] != 31:
+    if data.shape[1] != 42:
         raise ValueError('尺寸錯誤！')
 
     # 擴散映射計算，替換為 DMapRoseland_redo
@@ -169,10 +170,10 @@ def handle_DM():
 
     # 保存為 CSV 文件
     output_df = pd.DataFrame(output_matrix)
-    output_df.to_csv('U_large_name_with_outlier.csv', index=False, header=False)
+    output_df.to_csv('U_large_name_40.csv', index=False, header=False)
 
     # 檢查檔案是否存在
-    if os.path.exists('U_large_name.csv'):
+    if os.path.exists('U_large_name_40.csv'):
         print("檔案已成功儲存。")
         return True
         
@@ -192,7 +193,7 @@ def show_data():
 
     # 讀取 CSV 檔案
     #df = pd.read_csv('U_large_name_with_outlier.csv', header=None, names=['X', 'Y', 'Z', 'W', 'id'])
-    df = pd.read_csv('U_large_name.csv', header=None, names=['X', 'Y', 'Z', 'W', 'id'])
+    df = pd.read_csv('U_large_name_40.csv', header=None, names=['X', 'Y', 'Z', 'W', 'id'])
 
     # 計算 Silhouette Score and Calinski-Harabasz Score
     coordinates = df.iloc[:, :3].values  # 前三維當作空間中的座標 
@@ -212,7 +213,7 @@ def show_data():
 
     # 創建一個字典，用來將每個 id 對應到一個顏色
     unique_ids = df['id'].unique()
-    unique_ids = sorted(unique_ids, key=lambda x: int(x.split(' ')[0]))
+    unique_ids = sorted(unique_ids, key=lambda x: int(x.split('_')[0]))
     colors = px.colors.qualitative.G10
     color_map = {id: colors[i % len(colors)] for i, id in enumerate(unique_ids)}
 
@@ -309,7 +310,7 @@ def show_data():
             #print(len(input_value))
             if ',' in input_value:
                 input_values = input_value.split(',')
-                selected_ids = [option['value'] for option in options if option['value'].split(' ')[0] not in input_values]
+                selected_ids = [option['value'] for option in options if option['value'].split('_')[0] not in input_values]
             else:
                 if '(' in input_value:
 
@@ -318,7 +319,7 @@ def show_data():
                     print("selected_ids",selected_ids)
                 
                 else:
-                    selected_ids = [option['value'] for option in options if option['value'].split(' ')[0] not in input_value]
+                    selected_ids = [option['value'] for option in options if option['value'].split('_')[0] not in input_value]
         else: 
             selected_ids = []
         
@@ -555,6 +556,7 @@ if __name__ == '__main__':
 
     
 
-
+# 4  (2023-07-14 09-36-00).h5
+# 1_(2024-10-16 16_36_20),(1_EPG - resting  - 公司).json.h5
 
         
