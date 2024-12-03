@@ -61,7 +61,7 @@ def main():
         all_data = []
         # for user in users:
         #     user_id = user["idusers"]
-        user_id = 202
+        user_id = 156
         user_dir = os.path.join(base_dir, str(user_id))
         os.makedirs(user_dir, exist_ok=True)  # 為每個用戶建立資料夾
         sessions = get_user_sessions(user_id)
@@ -75,7 +75,10 @@ def main():
                     
                     note_lower = sessions["session_data"]["session_notes"][idx].lower()
                     keywords = ["ICP", "TCCP", "TICP"]
-                    data_type = 'TICP' if any(keyword.lower() in note_lower for keyword in keywords) else 'EPG'
+                    if 'ekg' in note_lower:
+                        data_type = 'EKG'
+                    else:
+                        data_type = 'TICP' if any(keyword.lower() in note_lower for keyword in keywords) else 'EPG'
                     
                     session_info = {
                         "user_id": user_id,
