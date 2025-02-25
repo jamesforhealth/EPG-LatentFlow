@@ -983,7 +983,7 @@ class MainWindow(QMainWindow):
         self.raw_data = [-value for packet in data['raw_data'] for value in packet['datas']]
         self.userID = data['user_id']
         self.sample_rate = data['sample_rate']
-        self.dataType = data['dataType']
+        self.dataType = data.get('dataType', data.get('measurement'))
         self.macaddress = data['macaddress']
         print(f'Sample_rate: {self.sample_rate}')
         scale = int(3 * self.sample_rate / 100)

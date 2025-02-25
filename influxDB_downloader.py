@@ -11,7 +11,7 @@ def sanitize_filename(filename):
 def format_timestamp(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H-%M-%S')
 # base_url = "https://mrqhn4tot3.execute-api.ap-northeast-1.amazonaws.com/api/database/v1/"
-base_url = "http://192.168.1.109:8000/v1"
+base_url = "http://192.168.1.131:8001/v1"
 
 # 獲取所有用戶列表
 def get_all_users():
@@ -61,7 +61,7 @@ def main():
         all_data = []
         # for user in users:
         #     user_id = user["idusers"]
-        user_id = 156
+        user_id = 37
         user_dir = os.path.join(base_dir, str(user_id))
         os.makedirs(user_dir, exist_ok=True)  # 為每個用戶建立資料夾
         sessions = get_user_sessions(user_id)
